@@ -30,14 +30,15 @@ public class SyncClienteJob
     /// </summary>
     [DisableConcurrentExecution(timeoutInSeconds: 300)] // 5 minutos de timeout por cliente
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 120 })] // Retry com backoff exponencial
-    public async Task ExecuteAsync(long userGroupId, string hashToken, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(long userGroupId, string hashToken,string baseUrl, CancellationToken cancellationToken = default)
     {
         var correlationId = Guid.NewGuid().ToString();
         using var scope = _logger.BeginScope(new Dictionary<string, object>
         {
             ["CorrelationId"] = correlationId,
             ["JobName"] = nameof(SyncClienteJob),
-            ["UserGroupId"] = userGroupId
+            ["UserGroupId"] = userGroupId,
+            ["BaseUrl"] = baseUrl
         });
 
         var startTime = DateTime.UtcNow;
@@ -48,7 +49,7 @@ public class SyncClienteJob
                 "Iniciando sincronização do cliente {UserGroupId}. CorrelationId: {CorrelationId}",
                 userGroupId, correlationId);
 
-            await _synchronizationService.SynchronizeClienteAsync(userGroupId, hashToken, cancellationToken);
+            await _synchronizationService.SynchronizeClienteAsync(userGroupId, hashToken,baseUrl, cancellationToken);
 
             var duration = DateTime.UtcNow - startTime;
             _logger.LogInformation(

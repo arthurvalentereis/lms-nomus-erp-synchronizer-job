@@ -8,6 +8,6 @@ public interface INomusClientFactory
     /// <summary>
     /// Cria uma instância do NomusClient configurada com o token do cliente
     /// </summary>
-    INomusClient CreateClient(string clientToken);
+    INomusClient CreateClient(string clientToken,string baseUrl);
 }
 

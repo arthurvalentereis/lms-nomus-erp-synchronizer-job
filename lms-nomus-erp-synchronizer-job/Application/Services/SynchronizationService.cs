@@ -31,7 +31,7 @@ public class SynchronizationService : ISynchronizationService
         _logger = logger;
     }
 
-    public async Task SynchronizeClienteAsync(long userGroupId, string hashToken, CancellationToken cancellationToken = default)
+    public async Task SynchronizeClienteAsync(long userGroupId, string hashToken,string baseUrl, CancellationToken cancellationToken = default)
     {
         var startTime = DateTime.UtcNow;
         using var scope = _logger.BeginScope(new Dictionary<string, object>
@@ -42,7 +42,7 @@ public class SynchronizationService : ISynchronizationService
         _logger.LogInformation("Iniciando sincronização do cliente {UserGroupId}", userGroupId);
 
         // Criar cliente Nomus com token específico
-        var nomusClient = _nomusClientFactory.CreateClient(hashToken);
+        var nomusClient = _nomusClientFactory.CreateClient(hashToken,baseUrl);
 
         // Buscar dados do Nomus em paralelo
         var boletosTask = FetchBoletosAsync(nomusClient, userGroupId, cancellationToken);

@@ -68,19 +68,19 @@ public class NomusClient : INomusClient
 
     public async Task<IEnumerable<BoletoDto>> GetBoletosAsync(CancellationToken cancellationToken = default)
     {
-        const string endpoint = "/empresa/rest/boletos";
+        const string endpoint = "rest/boletos";
         return await GetAsync<IEnumerable<BoletoDto>>(endpoint, cancellationToken);
     }
 
     public async Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(CancellationToken cancellationToken = default)
     {
-        const string endpoint = "/empresa/rest/recebimentos";
+        const string endpoint = "rest/recebimentos";
         return await GetAsync<IEnumerable<RecebimentoDto>>(endpoint, cancellationToken);
     }
 
     public async Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(CancellationToken cancellationToken = default)
     {
-        const string endpoint = "/empresa/rest/contasReceber";
+        const string endpoint = "rest/contasReceber";
         return await GetAsync<IEnumerable<ContaReceberDto>>(endpoint, cancellationToken);
     }
 

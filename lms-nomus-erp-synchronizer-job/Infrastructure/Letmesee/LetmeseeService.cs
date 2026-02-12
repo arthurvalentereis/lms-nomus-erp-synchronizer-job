@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -52,13 +53,19 @@ public class LetmeseeService : ILetmeseeService
 
     public async Task<IEnumerable<NomusCustomersDto>> GetNomusCustomersAsync(CancellationToken cancellationToken = default)
     {
-        const string endpoint = "erp/nomus/listcustomers";
+        const string endpoint = "workerIntegration/list-customer-nomus";
         
         try
         {
             _logger.LogDebug("Buscando clientes Nomus do Letmesee. Endpoint: {Endpoint}", endpoint);
 
-            var response = await _httpClient.GetAsync(endpoint, cancellationToken);
+            string url = $"{_options.BaseUrl}{endpoint}";
+            HttpRequestMessage request = new HttpRequestMessage
+            {
+                RequestUri = new Uri(url),
+                Method = new HttpMethod("GET")
+            };
+            var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync(cancellationToken);

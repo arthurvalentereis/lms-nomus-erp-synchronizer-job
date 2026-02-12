@@ -65,7 +65,7 @@ public class ScheduleSyncJob
                 {
                     // Enfileirar 1 job por cliente (fire-and-forget)
                     var jobId = _backgroundJobClient.Enqueue<SyncClienteJob>(
-                        job => job.ExecuteAsync(customer.UserGroupId!.Value, customer.HashToken!, cancellationToken));
+                        job => job.ExecuteAsync(customer.UserGroupId!.Value, customer.HashToken!,customer.BaseUrl!, cancellationToken));
 
                     jobsEnqueued++;
                     _logger.LogDebug("Job enfileirado para cliente {UserGroupId} ({Name}). JobId: {JobId}",

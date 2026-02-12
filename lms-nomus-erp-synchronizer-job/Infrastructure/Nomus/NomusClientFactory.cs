@@ -23,12 +23,13 @@ public class NomusClientFactory : INomusClientFactory
         _logger = logger;
     }
 
-    public INomusClient CreateClient(string clientToken)
+    public INomusClient CreateClient(string clientToken,string baseUrl)
     {
         var httpClient = _httpClientFactory.CreateClient();
-        
         // Configura o HttpClient com o token específico do cliente
-        httpClient.BaseAddress = new Uri(_options.BaseUrl);
+        httpClient.BaseAddress = new Uri(
+            baseUrl.EndsWith("/") ? baseUrl : baseUrl + "/"
+        );
         httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
         httpClient.DefaultRequestHeaders.Authorization = 
             new AuthenticationHeaderValue("Basic", clientToken);

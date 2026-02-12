@@ -17,6 +17,9 @@ public class NomusCustomersDto
     public string? HashToken { get; set; }
 
     [JsonPropertyName("lastUpdate")]
-    public DateTime? LastUpdate { get; set; }
+    public DateTime? LastUpdate { get; set; }  
+
+    [JsonPropertyName("baseUrl")]
+    public string? BaseUrl { get; set; }
 }
 

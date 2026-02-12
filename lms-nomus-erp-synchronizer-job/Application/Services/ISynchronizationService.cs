@@ -11,5 +11,5 @@ public interface ISynchronizationService
     /// <param name="userGroupId">ID do grupo de usuários (cliente)</param>
     /// <param name="hashToken">Token de autenticação do cliente no Nomus</param>
     /// <param name="cancellationToken">Token de cancelamento</param>
-    Task SynchronizeClienteAsync(long userGroupId, string hashToken, CancellationToken cancellationToken = default);
+    Task SynchronizeClienteAsync(long userGroupId, string hashToken,string baseUrl, CancellationToken cancellationToken = default);
 }
