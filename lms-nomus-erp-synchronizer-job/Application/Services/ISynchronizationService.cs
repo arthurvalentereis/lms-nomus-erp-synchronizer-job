@@ -1,28 +1,15 @@
 namespace lms_nomus_erp_synchronizer_job.Application.Services;
 
 /// <summary>
-/// Serviço responsável pela sincronização de dados do Nomus
+/// Serviço responsável pela sincronização de dados do Nomus via Letmesee
 /// </summary>
 public interface ISynchronizationService
 {
     /// <summary>
-    /// Sincroniza todos os boletos do Nomus
+    /// Sincroniza dados de um único cliente
     /// </summary>
-    Task SynchronizeBoletosAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Sincroniza todos os recebimentos do Nomus
-    /// </summary>
-    Task SynchronizeRecebimentosAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Sincroniza todas as contas a receber do Nomus
-    /// </summary>
-    Task SynchronizeContasReceberAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Sincroniza todos os dados (boletos, recebimentos e contas a receber)
-    /// </summary>
-    Task SynchronizeAllAsync(CancellationToken cancellationToken = default);
+    /// <param name="userGroupId">ID do grupo de usuários (cliente)</param>
+    /// <param name="hashToken">Token de autenticação do cliente no Nomus</param>
+    /// <param name="cancellationToken">Token de cancelamento</param>
+    Task SynchronizeClienteAsync(long userGroupId, string hashToken, CancellationToken cancellationToken = default);
 }
-

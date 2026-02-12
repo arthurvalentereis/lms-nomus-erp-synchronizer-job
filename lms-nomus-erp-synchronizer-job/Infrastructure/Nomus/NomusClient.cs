@@ -38,12 +38,14 @@ public class NomusClient : INomusClient
 
     private void ConfigureHttpClient()
     {
-        _httpClient.BaseAddress = new Uri(_options.BaseUrl);
-        _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
-        _httpClient.DefaultRequestHeaders.Authorization = 
-            new AuthenticationHeaderValue("Basic", _options.AuthToken);
-        _httpClient.DefaultRequestHeaders.Accept.Add(
-            new MediaTypeWithQualityHeaderValue("application/json"));
+        // HttpClient já deve estar configurado pela factory ou construtor
+        // Apenas garante que o Accept header está configurado se não estiver
+        if (!_httpClient.DefaultRequestHeaders.Accept.Contains(
+            new MediaTypeWithQualityHeaderValue("application/json")))
+        {
+            _httpClient.DefaultRequestHeaders.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
+        }
     }
 
     /// <summary>

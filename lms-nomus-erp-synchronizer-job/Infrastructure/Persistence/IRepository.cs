@@ -11,8 +11,12 @@ public interface IRepository<T> where T : class
     Task UpsertAsync(T entity, System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
     
     /// <summary>
+    /// Insere ou atualiza múltiplas entidades em lote
+    /// </summary>
+    Task BulkUpsertAsync(IEnumerable<T> entities, System.Linq.Expressions.Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
+    
+    /// <summary>
     /// Busca uma entidade por ID
     /// </summary>
     Task<T?> GetByIdAsync(object id, CancellationToken cancellationToken = default);
 }
-

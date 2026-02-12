@@ -2,10 +2,8 @@ using Hangfire;
 using Hangfire.Dashboard;
 using Hangfire.SqlServer;
 using lms_nomus_erp_synchronizer_job.Infrastructure.DependencyInjection;
-using lms_nomus_erp_synchronizer_job.Infrastructure.Extensions;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Logging;
-using lms_nomus_erp_synchronizer_job.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using lms_nomus_erp_synchronizer_job.Infrastructure.Extensions;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,14 +15,10 @@ builder.Host.ConfigureSerilog();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Configurar Entity Framework
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+// Configurar Hangfire (requer banco de dados apenas para storage de jobs)
+var connectionString = builder.Configuration.GetConnectionString("HangfireConnection")
+    ?? throw new InvalidOperationException("Connection string 'HangfireConnection' not found.");
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
-
-// Configurar Hangfire
 builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
@@ -40,21 +34,16 @@ builder.Services.AddHangfire(config => config
 
 builder.Services.AddHangfireServer(options =>
 {
-    options.WorkerCount = 1; // Pode ser ajustado conforme necessário
+    // WorkerCount pode ser aumentado para processar múltiplos clientes em paralelo
+    // Ex: 10 workers = 10 clientes processados simultaneamente
+    options.WorkerCount = Environment.ProcessorCount; // Usa número de CPUs disponíveis
 });
 
 // Configurar aplicação e infraestrutura
-builder.Services.AddApplication();
+builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
-
-// Garantir que o banco de dados está criado
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.EnsureCreated();
-}
 
 // Configurar Hangfire Dashboard (opcional - remover em produção se não for necessário)
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
@@ -63,7 +52,7 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 // Agendar jobs recorrentes
-lms_nomus_erp_synchronizer_job.Workers.HangfireJobScheduler.ScheduleJobs();
+lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobs();
 
 app.MapControllers();
 
