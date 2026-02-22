@@ -104,7 +104,7 @@ public class LetmeseeService : ILetmeseeService
 
     public async Task SendInvoicesAsync(IEnumerable<RequestInvoiceDto> invoices, CancellationToken cancellationToken = default)
     {
-        const string endpoint = "CustomerInvoice/add-list";
+        const string endpoint = "workerIntegration/add-list";
         var invoicesList = invoices.ToList();
 
         if (!invoicesList.Any())
@@ -120,10 +120,26 @@ public class LetmeseeService : ILetmeseeService
             var json = JsonSerializer.Serialize(invoicesList, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(endpoint, content, cancellationToken);
+            string url = $"{_options.BaseUrl}{endpoint}";
+
+            HttpRequestMessage request = new HttpRequestMessage
+            {
+                RequestUri = new Uri(url),
+                Method = new HttpMethod("POST"),
+                Content = content
+            };
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Erro:");
+                Console.WriteLine(responseContent);
+            }
+
             response.EnsureSuccessStatusCode();
 
-            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            //var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogInformation("Invoices enviadas com sucesso. Resposta: {Response}", responseContent);
         }
         catch (HttpRequestException ex)

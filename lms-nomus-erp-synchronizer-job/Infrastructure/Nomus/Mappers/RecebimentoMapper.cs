@@ -24,7 +24,8 @@ public static class RecebimentoMapper
             NomeFormaPagamento = dto.NomeFormaPagamento,
             NomeContaBancaria = dto.NomeContaBancaria,
             NomePessoa = dto.NomePessoa,
-            IdEmpresa = dto.IdEmpresa
+            IdEmpresa = dto.IdEmpresa,
+            Descricao = dto.DescricaoLancamento
         };
     }
 }

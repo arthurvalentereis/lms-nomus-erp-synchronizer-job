@@ -13,10 +13,11 @@ public class ContaReceber
     public decimal ValorReceber { get; set; }
     public decimal ValorRecebido { get; set; }
     public decimal SaldoReceber { get; set; }
-    public string Status { get; set; } = string.Empty;
-    public string Tipo { get; set; } = string.Empty;
+    public bool Status { get; set; }
+    public int Tipo { get; set; }
     public string Classificacao { get; set; } = string.Empty;
     public string NomePessoa { get; set; } = string.Empty;
+    public string? CnpjCpfPessoa { get; set; } = string.Empty;
     public string NomeEmpresa { get; set; } = string.Empty;
     public string? NomeFormaPagamento { get; set; }
 }

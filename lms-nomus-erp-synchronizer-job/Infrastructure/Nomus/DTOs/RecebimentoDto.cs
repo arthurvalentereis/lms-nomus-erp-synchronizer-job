@@ -42,5 +42,8 @@ public class RecebimentoDto
 
     [JsonPropertyName("idEmpresa")]
     public int IdEmpresa { get; set; }
+
+    [JsonPropertyName("descricaoLancamento")]
+    public string DescricaoLancamento { get; set; } = string.Empty;
 }
 

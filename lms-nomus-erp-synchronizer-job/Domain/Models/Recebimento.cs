@@ -17,5 +17,6 @@ public class Recebimento
     public string NomeContaBancaria { get; set; } = string.Empty;
     public string NomePessoa { get; set; } = string.Empty;
     public int IdEmpresa { get; set; }
+    public string Descricao { get; set; } = string.Empty;
 }
 

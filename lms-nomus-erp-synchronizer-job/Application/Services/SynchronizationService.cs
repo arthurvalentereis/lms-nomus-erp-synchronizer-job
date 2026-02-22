@@ -1,9 +1,11 @@
+using Hangfire;
 using lms_nomus_erp_synchronizer_job.Application.Mappers;
 using lms_nomus_erp_synchronizer_job.Domain.Models;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee.DTOs;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Mappers;
+using lms_nomus_erp_synchronizer_job.Worker.Jobs;
 
 namespace lms_nomus_erp_synchronizer_job.Application.Services;
 
@@ -66,6 +68,11 @@ public class SynchronizationService : ISynchronizationService
         _logger.LogInformation(
             "Sincronização do cliente {UserGroupId} concluída. Duração: {Duration}ms",
             userGroupId, duration.TotalMilliseconds);
+
+        // ao termino agendo o proximo para daqui a 5 minutos
+        BackgroundJob.Schedule<ScheduleSyncJob>(
+        x => x.ExecuteAsync(CancellationToken.None),
+        TimeSpan.FromMinutes(5));
     }
 
     private async Task<List<Boleto>> FetchBoletosAsync(
@@ -105,7 +112,7 @@ public class SynchronizationService : ISynchronizationService
             var recebimentos = recebimentosDto.Select(RecebimentoMapper.ToDomain).ToList();
 
             _logger.LogInformation("Total de recebimentos recebidos para cliente {UserGroupId}: {Count}",
-                userGroupId, recebimentos.Count);
+               userGroupId, recebimentos.Count);
 
             return recebimentos;
         }

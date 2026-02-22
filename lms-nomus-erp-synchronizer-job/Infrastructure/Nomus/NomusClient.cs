@@ -1,5 +1,9 @@
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using lms_nomus_erp_synchronizer_job.Domain.Models;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Configuration;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.DTOs;
 using Microsoft.Extensions.Options;
@@ -67,66 +71,114 @@ public class NomusClient : INomusClient
     }
 
     public async Task<IEnumerable<BoletoDto>> GetBoletosAsync(CancellationToken cancellationToken = default)
-    {
-        const string endpoint = "rest/boletos";
-        return await GetAsync<IEnumerable<BoletoDto>>(endpoint, cancellationToken);
-    }
+    => await GetAsync<BoletoDto>("rest/boletos", cancellationToken);
 
     public async Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(CancellationToken cancellationToken = default)
-    {
-        const string endpoint = "rest/recebimentos";
-        return await GetAsync<IEnumerable<RecebimentoDto>>(endpoint, cancellationToken);
-    }
+    => await GetAsync<RecebimentoDto>("rest/recebimentos", cancellationToken);
 
     public async Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(CancellationToken cancellationToken = default)
-    {
-        const string endpoint = "rest/contasReceber";
-        return await GetAsync<IEnumerable<ContaReceberDto>>(endpoint, cancellationToken);
-    }
+    => await GetAsync<ContaReceberDto>("rest/contasReceber", cancellationToken);
 
-    private async Task<T> GetAsync<T>(string endpoint, CancellationToken cancellationToken)
+    private async Task<List<TItem>> GetAsync<TItem>(string endpointBase, CancellationToken cancellationToken)
     {
         try
         {
-            _logger.LogDebug("Fazendo requisição GET para: {Endpoint}", endpoint);
+            _logger.LogDebug("Fazendo requisição GET para: {Endpoint}", endpointBase);
 
-            var response = await _httpClient.GetAsync(endpoint, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            var resultados = new List<TItem>();
+            var pagina = 1;
 
-            var content = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            var result = JsonSerializer.Deserialize<T>(content, _jsonOptions);
-            
-            if (result == null)
+            while (pagina <= 100)
             {
-                _logger.LogWarning("Resposta vazia do endpoint: {Endpoint}", endpoint);
-                return default!;
+                var endpoint = $"{endpointBase}?page={pagina}";
+
+                var response = await SendWithRetryAsync(endpoint, cancellationToken);
+
+                response.EnsureSuccessStatusCode();
+
+                var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+
+                var dados = await JsonSerializer.DeserializeAsync<List<TItem>>(
+                    stream,
+                    _jsonOptions,
+                    cancellationToken);
+
+                if (dados == null || dados.Count == 0)
+                    break;
+
+                resultados.AddRange(dados);
+
+                pagina++;
             }
 
-            _logger.LogDebug("Requisição bem-sucedida para: {Endpoint}. Tamanho da resposta: {Size} bytes", 
-                endpoint, content.Length);
-
-            return result;
+            _logger.LogDebug("Requisição paginada concluída para: {Endpoint}.", endpointBase);
+            return resultados;
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Erro HTTP ao buscar dados do endpoint: {Endpoint}", endpoint);
+            _logger.LogError(ex, "Erro HTTP ao buscar dados do endpoint: {Endpoint}", endpointBase);
             throw;
         }
         catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
         {
-            _logger.LogError("Timeout ao buscar dados do endpoint: {Endpoint}", endpoint);
+            _logger.LogError("Timeout ao buscar dados do endpoint: {Endpoint}", endpointBase);
             throw;
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "Erro ao deserializar resposta do endpoint: {Endpoint}", endpoint);
+            _logger.LogError(ex, "Erro ao deserializar resposta do endpoint: {Endpoint}", endpointBase);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro inesperado ao buscar dados do endpoint: {Endpoint}", endpoint);
+            _logger.LogError(ex, "Erro inesperado ao buscar dados do endpoint: {Endpoint}", endpointBase);
             throw;
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendWithRetryAsync(
+    string endpoint,
+    CancellationToken cancellationToken)
+    {
+        const int maxTentativas = 5;
+        int tentativa = 0;
+
+        while (true)
+        {
+            tentativa++;
+
+            var response = await _httpClient.GetAsync(endpoint, cancellationToken);
+
+            if (response.StatusCode != System.Net.HttpStatusCode.TooManyRequests)
+                return response;
+
+            if (tentativa >= maxTentativas)
+                throw new Exception("Limite de tentativas excedido (429).");
+
+            int tempoEsperaSegundos = 5; // fallback padrão
+
+            try
+            {
+                var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+
+                var erro = await JsonSerializer.DeserializeAsync<RateLimitResponse>(
+                    stream,
+                    _jsonOptions,
+                    cancellationToken);
+
+                if (Convert.ToInt32(erro?.TempoAteLiberar) > 0)
+                    tempoEsperaSegundos = Convert.ToInt32(erro?.TempoAteLiberar);
+            }
+            catch
+            {
+                _logger.LogWarning("Não foi possível ler tempoAteLiberar do 429. Usando fallback.");
+            }
+
+            _logger.LogWarning(
+                "429 recebido. Aguardando {Tempo}s antes de tentar novamente...",
+                tempoEsperaSegundos);
+
+            await Task.Delay(TimeSpan.FromSeconds(tempoEsperaSegundos), cancellationToken);
         }
     }
 }

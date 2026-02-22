@@ -25,6 +25,7 @@ public static class ContaReceberMapper
             Tipo = dto.Tipo,
             Classificacao = dto.Classificacao,
             NomePessoa = dto.NomePessoa,
+            CnpjCpfPessoa= dto.CnpjPessoa,
             NomeEmpresa = dto.NomeEmpresa,
             NomeFormaPagamento = dto.NomeFormaPagamento
         };

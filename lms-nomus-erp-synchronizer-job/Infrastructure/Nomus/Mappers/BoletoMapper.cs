@@ -14,7 +14,7 @@ public static class BoletoMapper
         return new Boleto
         {
             Id = dto.Id,
-            IdContaReceber = dto.IdContaReceber,
+            IdContaReceber = dto.IdContaBancaria,
             IdPessoa = dto.IdPessoa,
             IdEmpresa = dto.IdEmpresa,
             DataHoraEmissao = DateHelper.ParseDate(dto.DataHoraEmissao),

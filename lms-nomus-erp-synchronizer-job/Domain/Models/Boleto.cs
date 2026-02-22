@@ -12,7 +12,7 @@ public class Boleto
     public DateTime DataHoraEmissao { get; set; }
     public DateTime DataVencimento { get; set; }
     public decimal Valor { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public int Status { get; set; }
     public bool Cancelado { get; set; }
     public string NossoNumeroBoletoBancario { get; set; } = string.Empty;
     public string NumeroDocumento { get; set; } = string.Empty;

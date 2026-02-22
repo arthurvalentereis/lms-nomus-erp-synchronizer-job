@@ -16,11 +16,29 @@ public class ContaReceberDto
     [JsonPropertyName("idEmpresa")]
     public int IdEmpresa { get; set; }
 
+    [JsonPropertyName("idContaBancaria")]
+    public int IdContaBancaria { get; set; }
+
+    [JsonPropertyName("idFormaPagamento")]
+    public int IdFormaPagamento { get; set; }
+
+    [JsonPropertyName("idNfe")]
+    public int IdNfe { get; set; }
+
     [JsonPropertyName("dataVencimento")]
-    public object? DataVencimento { get; set; }
+    public string? DataVencimento { get; set; }
 
     [JsonPropertyName("dataCompetencia")]
-    public object? DataCompetencia { get; set; }
+    public string? DataCompetencia { get; set; }
+
+    [JsonPropertyName("dataAgendamento")]
+    public string? DataAgendamento { get; set; }
+
+    [JsonPropertyName("dataHoraCriacao")]
+    public string? DataHoraCriacao { get; set; }
+
+    [JsonPropertyName("dataModificacao")]
+    public string? DataModificacao { get; set; }
 
     [JsonPropertyName("valorReceber")]
     public string ValorReceber { get; set; } = string.Empty;
@@ -32,10 +50,10 @@ public class ContaReceberDto
     public string SaldoReceber { get; set; } = string.Empty;
 
     [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty;
+    public bool Status { get; set; } 
 
     [JsonPropertyName("tipo")]
-    public string Tipo { get; set; } = string.Empty;
+    public int Tipo { get; set; }     
 
     [JsonPropertyName("classificacao")]
     public string Classificacao { get; set; } = string.Empty;
@@ -48,5 +66,32 @@ public class ContaReceberDto
 
     [JsonPropertyName("nomeFormaPagamento")]
     public string? NomeFormaPagamento { get; set; }
+
+    [JsonPropertyName("numeroNotaFiscalOrigem")]
+    public string? NumeroNotaFiscalOrigem { get; set; }
+
+    [JsonPropertyName("cnpjPessoa")]
+    public string? CnpjPessoa { get; set; }
+
+    [JsonPropertyName("telefonePessoa")]
+    public string? TelefonePessoa { get; set; }
+
+    [JsonPropertyName("percentualMultaPorAtrasoEmContasReceber")]
+    public string? PercentualMultaPorAtrasoEmContasReceber { get; set; }
+
+    [JsonPropertyName("taxaMensalJuros")]
+    public string? TaxaMensalJuros { get; set; }
+
+    [JsonPropertyName("tipoCalculoMultaPorAtrasoEmContasReceber")]
+    public string? TipoCalculoMultaPorAtrasoEmContasReceber { get; set; }
+
+    [JsonPropertyName("tipoJurosAtrasoEmContasReceber")]
+    public string? TipoJurosAtrasoEmContasReceber { get; set; }
+
+    [JsonPropertyName("suspenderCobranca")]
+    public bool SuspenderCobranca { get; set; }
+
+    [JsonPropertyName("xmlNfe")]
+    public string? XmlNfe { get; set; }
 }
 
