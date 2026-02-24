@@ -1,0 +1,35 @@
+﻿using lms_nomus_erp_synchronizer_job.Domain.Helpers;
+using lms_nomus_erp_synchronizer_job.Domain.Models;
+using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.DTOs;
+
+namespace lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Mappers
+{
+    public static class CustomerMapper
+    {
+        public static Customer ToDomain(CustomerDto dto)
+        {
+            return new Customer
+            {
+                Id = dto.Id,
+                Nome = dto.Nome,
+                Cnpj = dto.Cnpj,
+                Bairro = dto.Bairro,
+                Endereco = dto.Endereco,
+                Numero = dto.Numero,
+                Municipio = dto.Municipio,
+                Pais = dto.Pais,
+                Cep = dto.Cep,
+                Complemento = dto.Complemento,
+                Uf = dto.Uf,
+                DataCriacao = DateHelper.ParseDate(dto.DataCriacao),
+                Telefone = dto.Telefone,
+                TelefoneNeofinDDD = dto.TelefoneNeofinDDD,
+                TelefoneNeofinDDI = dto.TelefoneNeofinDDI,
+                TelefoneNeofinNumero = dto.TelefoneNeofinNumero,
+                Email = dto.Email,
+                Ativo = dto.Ativo,
+                CreditLimit = dto.AnalisesCredito.FirstOrDefault()?.LimiteCredito != null ? Convert.ToInt32(dto.AnalisesCredito.FirstOrDefault()?.LimiteCredito) : null
+            };
+        }
+    }
+}

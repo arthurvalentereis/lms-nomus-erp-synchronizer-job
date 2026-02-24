@@ -11,6 +11,11 @@ public interface INomusClient
     /// <summary>
     /// Busca todos os boletos gerados
     /// </summary>
+    Task<IEnumerable<CustomerDto>> GetCustomerAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Busca todos os boletos gerados
+    /// </summary>
     Task<IEnumerable<BoletoDto>> GetBoletosAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -69,7 +69,8 @@ public class NomusClient : INomusClient
                     // Log será feito pelo middleware/logging automático
                 });
     }
-
+    public async Task<IEnumerable<CustomerDto>> GetCustomerAsync(CancellationToken cancellationToken = default)
+    => await GetAsync<CustomerDto>("rest/clientes", cancellationToken);
     public async Task<IEnumerable<BoletoDto>> GetBoletosAsync(CancellationToken cancellationToken = default)
     => await GetAsync<BoletoDto>("rest/boletos", cancellationToken);
 

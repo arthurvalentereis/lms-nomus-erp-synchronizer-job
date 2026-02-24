@@ -158,5 +158,61 @@ public class LetmeseeService : ILetmeseeService
             throw;
         }
     }
+    public async Task SendCustomerAsync(IEnumerable<RequestCustomerDto> customers, CancellationToken cancellationToken = default)
+    {
+        const string endpoint = "workerIntegration/add-list";
+        var customerList = customers.ToList();
+
+        if (!customerList.Any())
+        {
+            _logger.LogWarning("Nenhum customer para enviar");
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Enviando {Count} customers para o Letmesee", customerList.Count);
+
+            var json = JsonSerializer.Serialize(customerList, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            string url = $"{_options.BaseUrl}{endpoint}";
+
+            HttpRequestMessage request = new HttpRequestMessage
+            {
+                RequestUri = new Uri(url),
+                Method = new HttpMethod("POST"),
+                Content = content
+            };
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Erro:");
+                Console.WriteLine(responseContent);
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            //var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogInformation("Invoices enviadas com sucesso. Resposta: {Response}", responseContent);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Erro HTTP ao enviar invoices para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            _logger.LogError("Timeout ao enviar invoices para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro inesperado ao enviar invoices para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+    }
 }
 
