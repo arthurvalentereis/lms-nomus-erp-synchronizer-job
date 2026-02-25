@@ -5,6 +5,7 @@ using lms_nomus_erp_synchronizer_job.Infrastructure.DependencyInjection;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Logging;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Extensions;
 using Serilog;
+using lms_nomus_erp_synchronizer_job.Domain.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +54,13 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 
 // Agendar jobs recorrentes
 lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobs();
+//novo pifio
+var userGroupConfiguration = builder.Configuration
+    .GetSection("UserGroupConfiguration")
+    .Get<UserGroupConfiguration>();
+
+//if(userGroupConfiguration != null)
+// lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobsUserGroupId(userGroupConfiguration.UserGroupId, userGroupConfiguration.UserCompanyId, userGroupConfiguration.CreditorDocument, userGroupConfiguration.TokenUser, userGroupConfiguration.UrlUser);
 
 app.MapControllers();
 

@@ -30,5 +30,12 @@ public static class HangfireJobScheduler
         // - Os jobs individuais (SyncClienteJob) são enfileirados como fire-and-forget
         // - Cada job individual também usa [DisableConcurrentExecution] para evitar processar o mesmo cliente simultaneamente
     }
+    /// <summary>
+    /// Agenda job orquestrador para userGroupEspecifico 
+    /// </summary>
+    public static void ScheduleJobsUserGroupId(long userGroupId,long userCompanyId,string creditorDocument,string hashToken, string urlClient)
+    {
+        BackgroundJob.Enqueue<SyncClienteJob>(x => x.ExecuteUserGroupIdAsync(userGroupId,userCompanyId,creditorDocument,hashToken,urlClient,CancellationToken.None));
+    }
 }
 

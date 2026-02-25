@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace lms_nomus_erp_synchronizer_job.Domain.Helpers;
 
 /// <summary>
@@ -52,6 +54,14 @@ public static class DateHelper
 
         if (value is DateTimeOffset dto)
             return dto.DateTime;
+        if (value is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind == JsonValueKind.String)
+            {
+                var strs = jsonElement.GetString();
+                return ParseDate(strs);
+            }
+        }
 
         if (value is string str)
             return ParseDate(str);

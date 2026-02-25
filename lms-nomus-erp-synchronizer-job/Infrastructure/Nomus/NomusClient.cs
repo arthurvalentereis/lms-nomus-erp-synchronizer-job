@@ -79,6 +79,16 @@ public class NomusClient : INomusClient
 
     public async Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(string url, CancellationToken cancellationToken = default)
     => await GetAsync<ContaReceberDto>(url, cancellationToken);
+    public async Task<IEnumerable<CustomerDto>> GetAllCustomerAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<CustomerDto>(url, cancellationToken);
+    public async Task<IEnumerable<BoletoDto>> GetAllBoletosAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<BoletoDto>(url, cancellationToken);
+
+    public async Task<IEnumerable<RecebimentoDto>> GetAllRecebimentosAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<RecebimentoDto>(url, cancellationToken);
+
+    public async Task<IEnumerable<ContaReceberDto>> GetAllContasReceberAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<ContaReceberDto>(url, cancellationToken);
 
     private const int MaxPaginas = 100;
     private const string ParametroPagina = "pagina"; // conforme documentação Nomus (Postman)
