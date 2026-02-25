@@ -10,6 +10,12 @@ public class NomusCustomersDto
     [JsonPropertyName("userGroupId")]
     public long? UserGroupId { get; set; }
 
+    [JsonPropertyName("userCompanyId")]
+    public long? UserCompanyId { get; set; }
+
+    [JsonPropertyName("creditorDocument")]
+    public string? CreditorDocument { get; set; }
+
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 

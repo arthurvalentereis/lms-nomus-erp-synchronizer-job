@@ -13,7 +13,7 @@
         public string Municipio { get; set; } = string.Empty;
         public string Pais { get; set; } = string.Empty;
         public string Telefone { get; set; } = string.Empty;
-        public string TelefoneNeofinDDD { get; set; } = string.Empty;
+        public int TelefoneNeofinDDD { get; set; }
         public string TelefoneNeofinDDI { get; set; } = string.Empty;
         public string TelefoneNeofinNumero { get; set; } = string.Empty;
         public string TipoLogradouro { get; set; } = string.Empty;

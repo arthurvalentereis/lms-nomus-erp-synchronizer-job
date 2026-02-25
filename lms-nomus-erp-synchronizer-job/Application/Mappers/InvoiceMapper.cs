@@ -16,7 +16,8 @@ public static class InvoiceMapper
         ContaReceber contaReceber,
         List<Boleto>? boleto = null,
         List<Recebimento>? recebimento = null,
-        long? userGroupId = null)
+        long? userGroupId = null,
+        string? creditorDocument = null)
     {
         var boletoInfo = boleto?.FirstOrDefault(b => b.IdContaReceber == contaReceber.Id);
         var recebimentoInfo = recebimento?.FirstOrDefault(r => r.IdContaReceber == contaReceber.Id);
@@ -33,9 +34,9 @@ public static class InvoiceMapper
             BuyerId = contaReceber.IdPessoa.ToString(),
             Description = $"Conta a Receber {contaReceber.Id} - {contaReceber.Classificacao}",
             Type = contaReceber.Tipo.ToString(),
-            InExtract = contaReceber.Status == true,
-            InvoiceInstallment = ObterNumeroParcela(recebimentoInfo?.Descricao ?? "") ?? 1
-
+            WasPaid = contaReceber.Status == true,
+            InvoiceInstallment = ObterNumeroParcela(recebimentoInfo?.Descricao ?? "") ?? 1,
+            CreditorDocument = creditorDocument
         };
 
         // Se houver boleto, adiciona informações adicionais
@@ -81,7 +82,8 @@ public static class InvoiceMapper
         IEnumerable<ContaReceber> contasReceber,
         IEnumerable<Boleto> boletos,
         IEnumerable<Recebimento> recebimentos,
-        long? userGroupId = null)
+        long? userGroupId = null,
+        string? creditorDocument = null)
     {
         var boletosDict = boletos.GroupBy(r => r.IdContaReceber)
             .ToDictionary(g => g.Key, g => g.FirstOrDefault());
@@ -91,7 +93,7 @@ public static class InvoiceMapper
 
         return contasReceber.Select(conta =>
         {
-            return ToInvoiceDto(conta, boletos.ToList(), recebimentos.ToList(), userGroupId);
+            return ToInvoiceDto(conta, boletos.ToList(), recebimentos.ToList(), userGroupId,creditorDocument);
         }).ToList();
     }
 }

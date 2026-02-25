@@ -35,16 +35,16 @@ namespace lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.DTOs
         public int Crt { get; set; }
 
         [JsonPropertyName("dataCriacao")]
-        public DateTime? DataCriacao { get; set; }
+        public string? DataCriacao { get; set; }
 
         [JsonPropertyName("dataEmissaoUltimoPedidoVenda")]
-        public DateTime? DataEmissaoUltimoPedidoVenda { get; set; }
+        public string? DataEmissaoUltimoPedidoVenda { get; set; }
 
         [JsonPropertyName("dataInicioRelacionamento")]
-        public DateTime? DataInicioRelacionamento { get; set; }
+        public string? DataInicioRelacionamento { get; set; }
 
         [JsonPropertyName("dataModificacao")]
-        public DateTime? DataModificacao { get; set; }
+        public string? DataModificacao { get; set; }
 
         [JsonPropertyName("email")]
         public string Email { get; set; } = string.Empty;
@@ -114,7 +114,7 @@ namespace lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.DTOs
         [JsonPropertyName("dataAnaliseCredito")]
         public string DataAnaliseCredito { get; set; }
         [JsonPropertyName("decisaoAnaliseCredito")]
-        public string DecisaoAnaliseCredito { get; set; } = string.Empty;
+        public long DecisaoAnaliseCredito { get; set; }
         [JsonPropertyName("limiteCredito")]
         public string? LimiteCredito { get; set; }
         [JsonPropertyName("limiteCreditoInadimplenciaDiasAtraso")]

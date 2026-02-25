@@ -160,7 +160,7 @@ public class LetmeseeService : ILetmeseeService
     }
     public async Task SendCustomerAsync(IEnumerable<RequestCustomerDto> customers, CancellationToken cancellationToken = default)
     {
-        const string endpoint = "workerIntegration/add-list";
+        const string endpoint = "workerIntegration/add-customers";
         var customerList = customers.ToList();
 
         if (!customerList.Any())

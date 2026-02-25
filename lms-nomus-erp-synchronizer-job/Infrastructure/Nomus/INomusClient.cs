@@ -11,21 +11,21 @@ public interface INomusClient
     /// <summary>
     /// Busca todos os boletos gerados
     /// </summary>
-    Task<IEnumerable<CustomerDto>> GetCustomerAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<CustomerDto>> GetCustomerAsync(string url , CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Busca todos os boletos gerados
     /// </summary>
-    Task<IEnumerable<BoletoDto>> GetBoletosAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<BoletoDto>> GetBoletosAsync(string url, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Busca todos os recebimentos
     /// </summary>
-    Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(string url, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Busca todas as contas a receber
     /// </summary>
-    Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(CancellationToken cancellationToken = default);
+    Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(string url, CancellationToken cancellationToken = default);
 }
 

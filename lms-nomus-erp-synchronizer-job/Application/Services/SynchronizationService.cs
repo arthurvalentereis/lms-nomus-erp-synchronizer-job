@@ -6,6 +6,7 @@ using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee.DTOs;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Mappers;
 using lms_nomus_erp_synchronizer_job.Worker.Jobs;
+using System.Text;
 
 namespace lms_nomus_erp_synchronizer_job.Application.Services;
 
@@ -33,7 +34,7 @@ public class SynchronizationService : ISynchronizationService
         _logger = logger;
     }
 
-    public async Task SynchronizeClienteAsync(long userGroupId, string hashToken,string baseUrl, CancellationToken cancellationToken = default)
+    public async Task SynchronizeClienteAsync(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string baseUrl, CancellationToken cancellationToken = default)
     {
         var startTime = DateTime.UtcNow;
         using var scope = _logger.BeginScope(new Dictionary<string, object>
@@ -56,17 +57,22 @@ public class SynchronizationService : ISynchronizationService
         var contasTask = FetchContasReceberAsync(nomusClient, userGroupId, cancellationToken);
 
         await Task.WhenAll(customerTask, boletosTask, recebimentosTask, contasTask);
+        //await Task.WhenAll(customerTask);
 
         var boletos = await boletosTask;
         var recebimentos = await recebimentosTask;
         var contasReceber = await contasTask;
+        var customers = await customerTask;
 
         _logger.LogInformation(
-            "Dados recebidos do Nomus para cliente {UserGroupId}: Boletos: {BoletoCount}, Recebimentos: {RecebimentoCount}, Contas: {ContaCount}",
-            userGroupId, boletos.Count, recebimentos.Count, contasReceber.Count);
+           "Dados recebidos do Nomus para cliente {UserGroupId}: Boletos: {BoletoCount}, Recebimentos: {RecebimentoCount}, Contas: {ContaCount}",
+          userGroupId, boletos.Count, recebimentos.Count, contasReceber.Count);
 
         // Enviar invoices para o Letmesee em batches
-        await SendInvoicesInBatchesAsync(boletos, recebimentos, contasReceber, userGroupId, cancellationToken);
+       await SendInvoicesInBatchesAsync(boletos, recebimentos, contasReceber, userGroupId,creditorDocument, cancellationToken);  
+        
+        // Enviar customers para o Letmesee em batches
+        await SendCustomerInBatchesAsync(customers, userGroupId,userCompanyId, cancellationToken);
 
         var duration = DateTime.UtcNow - startTime;
         _logger.LogInformation(
@@ -87,7 +93,10 @@ public class SynchronizationService : ISynchronizationService
         {
             _logger.LogDebug("Buscando customers do cliente {UserGroupId}", userGroupId);
 
-            var customerDto = await nomusClient.GetCustomerAsync(cancellationToken);
+            var filtro = "ativo=true";
+            var encoded = Uri.EscapeDataString(filtro);
+            var url = $"rest/clientes?query={encoded}";
+            var customerDto = await nomusClient.GetCustomerAsync(url, cancellationToken);
             var customer = customerDto.Select(Infrastructure.Nomus.Mappers.CustomerMapper.ToDomain).ToList();
 
             _logger.LogInformation("Total de customers recebidos para cliente {UserGroupId}: {Count}",
@@ -109,8 +118,10 @@ public class SynchronizationService : ISynchronizationService
         try
         {
             _logger.LogDebug("Buscando boletos do cliente {UserGroupId}", userGroupId);
-
-            var boletosDto = await nomusClient.GetBoletosAsync(cancellationToken);
+            var filtro = "ativos=true";
+            var encoded = Uri.EscapeDataString(filtro);
+            var url = $"rest/boletos";
+            var boletosDto = await nomusClient.GetBoletosAsync(url,cancellationToken);
             var boletos = boletosDto.Select(BoletoMapper.ToDomain).ToList();
 
             _logger.LogInformation("Total de boletos recebidos para cliente {UserGroupId}: {Count}",
@@ -133,8 +144,10 @@ public class SynchronizationService : ISynchronizationService
         try
         {
             _logger.LogDebug("Buscando recebimentos do cliente {UserGroupId}", userGroupId);
-
-            var recebimentosDto = await nomusClient.GetRecebimentosAsync(cancellationToken);
+            var filtro = "ativos=true";
+            var encoded = Uri.EscapeDataString(filtro);
+            var url = $"rest/recebimentos";
+            var recebimentosDto = await nomusClient.GetRecebimentosAsync(url,cancellationToken);
             var recebimentos = recebimentosDto.Select(RecebimentoMapper.ToDomain).ToList();
 
             _logger.LogInformation("Total de recebimentos recebidos para cliente {UserGroupId}: {Count}",
@@ -157,8 +170,10 @@ public class SynchronizationService : ISynchronizationService
         try
         {
             _logger.LogDebug("Buscando contas a receber do cliente {UserGroupId}", userGroupId);
-
-            var contasDto = await nomusClient.GetContasReceberAsync(cancellationToken);
+            var filtro = "ativos=true";
+            var encoded = Uri.EscapeDataString(filtro);
+            var url = $"rest/contasReceber";
+            var contasDto = await nomusClient.GetContasReceberAsync(url,cancellationToken);
             var contas = contasDto.Select(ContaReceberMapper.ToDomain).ToList();
 
             _logger.LogInformation("Total de contas a receber recebidas para cliente {UserGroupId}: {Count}",
@@ -181,6 +196,7 @@ public class SynchronizationService : ISynchronizationService
         List<Recebimento> recebimentos,
         List<ContaReceber> contasReceber,
         long userGroupId,
+        string creditorDocument,
         CancellationToken cancellationToken)
     {
         try
@@ -192,7 +208,9 @@ public class SynchronizationService : ISynchronizationService
                 contasReceber,
                 boletos,
                 recebimentos,
-                userGroupId).ToList();
+                userGroupId,
+                creditorDocument
+                ).ToList();
 
             if (!invoices.Any())
             {
@@ -222,6 +240,7 @@ public class SynchronizationService : ISynchronizationService
     private async Task SendCustomerInBatchesAsync(
         List<Customer> customer,
         long userGroupId,
+        long userCompanyId,
         CancellationToken cancellationToken)
     {
         try
@@ -231,7 +250,7 @@ public class SynchronizationService : ISynchronizationService
             // Converter dados do Nomus em invoices do Letmesee
             var customers = customer.Select(customer =>
             {
-                return Mappers.CustomerMapper.ToCustomerDto(customer, userGroupId);
+                return Mappers.CustomerMapper.ToCustomerDto(customer, userGroupId,userCompanyId);
             }).ToList();
 
             if (!customers.Any())

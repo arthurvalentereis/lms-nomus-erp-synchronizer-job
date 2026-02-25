@@ -69,50 +69,60 @@ public class NomusClient : INomusClient
                     // Log será feito pelo middleware/logging automático
                 });
     }
-    public async Task<IEnumerable<CustomerDto>> GetCustomerAsync(CancellationToken cancellationToken = default)
-    => await GetAsync<CustomerDto>("rest/clientes", cancellationToken);
-    public async Task<IEnumerable<BoletoDto>> GetBoletosAsync(CancellationToken cancellationToken = default)
-    => await GetAsync<BoletoDto>("rest/boletos", cancellationToken);
+    public async Task<IEnumerable<CustomerDto>> GetCustomerAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<CustomerDto>(url, cancellationToken);
+    public async Task<IEnumerable<BoletoDto>> GetBoletosAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<BoletoDto>(url, cancellationToken);
 
-    public async Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(CancellationToken cancellationToken = default)
-    => await GetAsync<RecebimentoDto>("rest/recebimentos", cancellationToken);
+    public async Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<RecebimentoDto>(url, cancellationToken);
 
-    public async Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(CancellationToken cancellationToken = default)
-    => await GetAsync<ContaReceberDto>("rest/contasReceber", cancellationToken);
+    public async Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(string url, CancellationToken cancellationToken = default)
+    => await GetAsync<ContaReceberDto>(url, cancellationToken);
+
+    private const int MaxPaginas = 100;
+    private const string ParametroPagina = "pagina"; // conforme documentação Nomus (Postman)
 
     private async Task<List<TItem>> GetAsync<TItem>(string endpointBase, CancellationToken cancellationToken)
     {
         try
         {
-            _logger.LogDebug("Fazendo requisição GET para: {Endpoint}", endpointBase);
+            _logger.LogDebug("Fazendo requisição GET paginada para: {Endpoint} (máx. {Max} páginas)", endpointBase, MaxPaginas);
 
             var resultados = new List<TItem>();
             var pagina = 1;
+            var separator = endpointBase.Contains('?') ? "&" : "?";
 
-            while (pagina <= 100)
+            while (pagina <= MaxPaginas)
             {
-                var endpoint = $"{endpointBase}?page={pagina}";
+                var endpoint = $"{endpointBase}{separator}{ParametroPagina}={pagina}";
+
+                _logger.LogDebug("Buscando página {Pagina}: {Endpoint}", pagina, endpoint);
 
                 var response = await SendWithRetryAsync(endpoint, cancellationToken);
-
                 response.EnsureSuccessStatusCode();
 
                 var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-
                 var dados = await JsonSerializer.DeserializeAsync<List<TItem>>(
                     stream,
                     _jsonOptions,
                     cancellationToken);
 
                 if (dados == null || dados.Count == 0)
+                {
+                    _logger.LogDebug("Página {Pagina} vazia ou nula, encerrando paginação.", pagina);
                     break;
+                }
 
                 resultados.AddRange(dados);
-
+                _logger.LogDebug("Página {Pagina}: {Count} itens (total acumulado: {Total}).", pagina, dados.Count, resultados.Count);
                 pagina++;
             }
 
-            _logger.LogDebug("Requisição paginada concluída para: {Endpoint}.", endpointBase);
+            if (pagina > MaxPaginas)
+                _logger.LogWarning("Limite de {Max} páginas atingido para: {Endpoint}. Total de itens: {Total}.", MaxPaginas, endpointBase, resultados.Count);
+
+            _logger.LogDebug("Requisição paginada concluída para: {Endpoint}. Páginas: {Paginas}, Total itens: {Total}.", endpointBase, pagina - 1, resultados.Count);
             return resultados;
         }
         catch (HttpRequestException ex)

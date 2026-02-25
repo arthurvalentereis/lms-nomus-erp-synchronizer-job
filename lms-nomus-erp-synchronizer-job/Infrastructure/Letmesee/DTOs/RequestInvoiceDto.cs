@@ -141,5 +141,9 @@ public class RequestInvoiceDto
 
     [JsonPropertyName("repeatEveryEndDate")]
     public DateTime? RepeatEveryEndDate { get; set; }
+
+    [JsonPropertyName("wasPaid")]
+    public bool? WasPaid { get; set; }
+
 }
 

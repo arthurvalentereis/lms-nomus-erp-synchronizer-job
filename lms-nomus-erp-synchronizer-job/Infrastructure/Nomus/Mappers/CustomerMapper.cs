@@ -8,6 +8,9 @@ namespace lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Mappers
     {
         public static Customer ToDomain(CustomerDto dto)
         {
+            decimal? limite = null;
+            if(dto.AnalisesCredito is not null)
+                limite = Convert.ToInt32(dto.AnalisesCredito.FirstOrDefault()?.LimiteCredito);
             return new Customer
             {
                 Id = dto.Id,
@@ -23,12 +26,9 @@ namespace lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Mappers
                 Uf = dto.Uf,
                 DataCriacao = DateHelper.ParseDate(dto.DataCriacao),
                 Telefone = dto.Telefone,
-                TelefoneNeofinDDD = dto.TelefoneNeofinDDD,
-                TelefoneNeofinDDI = dto.TelefoneNeofinDDI,
-                TelefoneNeofinNumero = dto.TelefoneNeofinNumero,
                 Email = dto.Email,
                 Ativo = dto.Ativo,
-                CreditLimit = dto.AnalisesCredito.FirstOrDefault()?.LimiteCredito != null ? Convert.ToInt32(dto.AnalisesCredito.FirstOrDefault()?.LimiteCredito) : null
+                CreditLimit = limite
             };
         }
     }

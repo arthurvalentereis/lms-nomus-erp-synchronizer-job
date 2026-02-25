@@ -17,17 +17,18 @@ namespace lms_nomus_erp_synchronizer_job.Application.Mappers
         /// </summary>
         public static RequestCustomerDto ToCustomerDto(
             Customer customerDto,
-            long? userGroupId = null)
+            long? userGroupId = null,
+            long? userCompanyId = null)
         {
 
             var customer = new RequestCustomerDto
             {
                 UserGroupId = userGroupId,
+                UserCompanyId = userCompanyId,
+                Name = customerDto.Nome,
                 Cnpj = LimparDocumento(customerDto.Cnpj ?? ""),
                 Email = customerDto.Email,
-                DDD = customerDto.TelefoneNeofinDDD,
-                PhoneNumber = customerDto.TelefoneNeofinNumero,
-                CountryPhoneNumber = customerDto.TelefoneNeofinDDI,
+                PhoneNumber = customerDto.Telefone,
                 Address = customerDto.Endereco,
                 Neighborhood = customerDto.Bairro,
                 ZipCode = customerDto.Cep,
@@ -35,7 +36,8 @@ namespace lms_nomus_erp_synchronizer_job.Application.Mappers
                 State = customerDto.Uf,
                 Number = customerDto.Numero,
                 Complement = customerDto.Complemento,
-                CreditLimit = customerDto.CreditLimit
+                CreditLimit = customerDto.CreditLimit,
+                
 
             };
             return customer;
