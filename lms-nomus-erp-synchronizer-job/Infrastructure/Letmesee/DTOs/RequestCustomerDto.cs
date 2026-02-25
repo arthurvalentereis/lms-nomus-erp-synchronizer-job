@@ -8,6 +8,7 @@
 
         public string Name { get; set; } = string.Empty;
         public string Cnpj { get; set; } = string.Empty;
+        public DateTime RegistratedAt { get; set; }
 
         public string Email { get; set; } = string.Empty;
 

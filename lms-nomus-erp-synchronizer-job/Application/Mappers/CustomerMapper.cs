@@ -37,7 +37,8 @@ namespace lms_nomus_erp_synchronizer_job.Application.Mappers
                 Number = customerDto.Numero,
                 Complement = customerDto.Complemento,
                 CreditLimit = customerDto.CreditLimit,
-                
+                RegistratedAt = customerDto.DataCriacao
+
 
             };
             return customer;
