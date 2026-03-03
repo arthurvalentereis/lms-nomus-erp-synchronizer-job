@@ -18,6 +18,7 @@ public static class ContaReceberMapper
             IdEmpresa = dto.IdEmpresa,
             DataVencimento = DateHelper.ParseDate(dto.DataVencimento),
             DataCompetencia = DateHelper.ParseDate(dto.DataCompetencia),
+            DataBaixa = DateHelper.ParseDate(dto.DataBaixa),
             ValorReceber = CurrencyHelper.ParseBrazilianCurrency(dto.ValorReceber),
             ValorRecebido = CurrencyHelper.ParseBrazilianCurrency(dto.ValorRecebido),
             SaldoReceber = CurrencyHelper.ParseBrazilianCurrency(dto.SaldoReceber),

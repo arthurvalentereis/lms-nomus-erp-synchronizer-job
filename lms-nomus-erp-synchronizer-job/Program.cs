@@ -52,15 +52,21 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
     Authorization = new[] { new HangfireAuthorizationFilter() } // Permitir acesso local
 });
 
-// Agendar jobs recorrentes
-lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobs();
-//novo pifio
+// Agendar jobs recorrentes DIÁRIO
+
 var userGroupConfiguration = builder.Configuration
     .GetSection("UserGroupConfiguration")
     .Get<UserGroupConfiguration>();
 
-//if(userGroupConfiguration != null)
-// lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobsUserGroupId(userGroupConfiguration.UserGroupId, userGroupConfiguration.UserCompanyId, userGroupConfiguration.CreditorDocument, userGroupConfiguration.TokenUser, userGroupConfiguration.UrlUser);
+// RODAR UMA VEZ (SOMENTE NOVOS CLIENTES)
+if(userGroupConfiguration is not null)
+{
+    if (userGroupConfiguration.Run == false)
+        lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobs();
+
+    if (userGroupConfiguration.Run == true)
+        lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobsUserGroupId(userGroupConfiguration.UserGroupId, userGroupConfiguration.UserCompanyId, userGroupConfiguration.CreditorDocument, userGroupConfiguration.TokenUser, userGroupConfiguration.UrlUser);
+}
 
 app.MapControllers();
 

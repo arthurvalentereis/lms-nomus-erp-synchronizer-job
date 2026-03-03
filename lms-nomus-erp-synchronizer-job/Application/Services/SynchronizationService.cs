@@ -33,7 +33,16 @@ public class SynchronizationService : ISynchronizationService
         _letmeseeService = letmeseeService;
         _logger = logger;
     }
-
+    /// <summary>
+    /// UserGroupConfiguration.Run = False
+    /// </summary>
+    /// <param name="userGroupId"></param>
+    /// <param name="userCompanyId"></param>
+    /// <param name="creditorDocument"></param>
+    /// <param name="hashToken"></param>
+    /// <param name="baseUrl"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public async Task SynchronizeClienteAsync(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string baseUrl, CancellationToken cancellationToken = default)
     {
         var startTime = DateTime.UtcNow;
@@ -61,15 +70,21 @@ public class SynchronizationService : ISynchronizationService
 
         var boletos = await boletosTask;
         var recebimentos = await recebimentosTask;
+            recebimentos = recebimentos
+                .Where(r=> r.BaixaContaReceber == true)
+                .ToList(); // Filtrar apenas recebimentos com baixa
         var contasReceber = await contasTask;
+            contasReceber = contasReceber
+                .Where(c => c.Status == true)
+                .ToList();
         var customers = await customerTask;
 
         _logger.LogInformation(
            "Dados recebidos do Nomus para cliente {UserGroupId}: Boletos: {BoletoCount}, Recebimentos: {RecebimentoCount}, Contas: {ContaCount}",
           userGroupId, boletos.Count, recebimentos.Count, contasReceber.Count);
 
-       // Enviar invoices para o Letmesee em batches
-       await SendInvoicesInBatchesAsync(boletos, recebimentos, contasReceber, userGroupId,creditorDocument, cancellationToken);  
+        // Enviar invoices para o Letmesee em batches
+        await SendInvoicesInBatchesAsync(boletos, recebimentos, contasReceber, userGroupId,creditorDocument, cancellationToken);  
         
         // Enviar customers para o Letmesee em batches
         await SendCustomerInBatchesAsync(customers, userGroupId,userCompanyId, cancellationToken);
@@ -79,11 +94,24 @@ public class SynchronizationService : ISynchronizationService
             "Sincronização do cliente {UserGroupId} concluída. Duração: {Duration}ms",
             userGroupId, duration.TotalMilliseconds);
 
+        Task.Delay(TimeSpan.FromMinutes(4), cancellationToken)
+            .Wait(cancellationToken); // Pequena pausa para garantir que logs sejam processados
         // ao termino agendo o proximo para daqui a 5 minutos
         BackgroundJob.Schedule<ScheduleSyncJob>(
         x => x.ExecuteAsync(CancellationToken.None),
         TimeSpan.FromMinutes(5));
     }
+    
+    /// <summary>
+    /// UserGroupConfiguration.Run = True
+    /// </summary>
+    /// <param name="userGroupId"></param>
+    /// <param name="userCompanyId"></param>
+    /// <param name="creditorDocument"></param>
+    /// <param name="hashToken"></param>
+    /// <param name="baseUrl"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public async Task SynchronizeAllFilesClienteAsync(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string baseUrl, CancellationToken cancellationToken = default)
     {
         var startTime = DateTime.UtcNow;
@@ -111,7 +139,13 @@ public class SynchronizationService : ISynchronizationService
 
         var boletos = await boletosTask;
         var recebimentos = await recebimentosTask;
+        recebimentos = recebimentos
+                .Where(r => r.BaixaContaReceber == true)
+                .ToList(); // Filtrar apenas recebimentos com baixa
         var contasReceber = await contasTask;
+        contasReceber = contasReceber
+               .Where(c => c.Status == true)
+               .ToList();
         var customers = await customerTask;
 
         _logger.LogInformation(
@@ -328,7 +362,7 @@ public class SynchronizationService : ISynchronizationService
             _logger.LogDebug("Buscando contas a receber do cliente {UserGroupId}", userGroupId);
             var ontem = DateTime.Now.AddDays(-1);
             var dataFiltro = ontem.ToString("dd/MM/yyyy"); // formato comum no Nomus
-            var filtro = $"dataCompetencia>={dataFiltro}";
+            var filtro = $"dataBaixa>={dataFiltro}";
             var encoded = Uri.EscapeDataString(filtro);
             var url = $"rest/contasReceber?query={encoded}";
             var contasDto = await nomusClient.GetContasReceberAsync(url, cancellationToken);

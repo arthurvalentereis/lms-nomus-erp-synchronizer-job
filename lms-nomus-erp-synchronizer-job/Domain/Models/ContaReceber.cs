@@ -10,6 +10,7 @@ public class ContaReceber
     public int IdEmpresa { get; set; }
     public DateTime DataVencimento { get; set; }
     public DateTime DataCompetencia { get; set; }
+    public DateTime? DataBaixa { get; set; }
     public decimal ValorReceber { get; set; }
     public decimal ValorRecebido { get; set; }
     public decimal SaldoReceber { get; set; }

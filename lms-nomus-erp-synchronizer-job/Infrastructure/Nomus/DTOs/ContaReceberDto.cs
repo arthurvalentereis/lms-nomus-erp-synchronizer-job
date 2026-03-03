@@ -31,6 +31,9 @@ public class ContaReceberDto
     [JsonPropertyName("dataCompetencia")]
     public string? DataCompetencia { get; set; }
 
+    [JsonPropertyName("dataBaixa")]
+    public string? DataBaixa { get; set; }
+
     [JsonPropertyName("dataAgendamento")]
     public string? DataAgendamento { get; set; }
 

@@ -145,5 +145,8 @@ public class RequestInvoiceDto
     [JsonPropertyName("wasPaid")]
     public bool? WasPaid { get; set; }
 
+    [JsonPropertyName("payDay")]
+    public DateTime? PayDay { get; set; }
+
 }
 

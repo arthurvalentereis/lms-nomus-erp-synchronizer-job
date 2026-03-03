@@ -7,5 +7,6 @@
         public long UserCompanyId { get; set; }
         public string TokenUser { get; set; }
         public string UrlUser { get; set; }
+        public bool Run { get; set; }
     }
 }

@@ -68,7 +68,7 @@ public class ScheduleSyncJob
                         job => job.ExecuteAsync(customer.UserGroupId!.Value,customer.UserCompanyId!.Value,customer.CreditorDocument!, customer.HashToken!,customer.BaseUrl!, cancellationToken));
 
                     jobsEnqueued++;
-                    _logger.LogDebug("Job enfileirado para cliente {UserGroupId} ({Name}). JobId: {JobId}",
+                    _logger.LogDebug("Job enfile    irado para cliente {UserGroupId} ({Name}). JobId: {JobId}",
                         customer.UserGroupId, customer.Name, jobId);
                 }
                 catch (Exception ex)
