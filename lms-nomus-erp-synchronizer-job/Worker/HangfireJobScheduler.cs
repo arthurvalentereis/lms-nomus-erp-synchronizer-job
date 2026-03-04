@@ -6,15 +6,22 @@ namespace lms_nomus_erp_synchronizer_job.Worker;
 /// <summary>
 /// Configuração e agendamento dos jobs recorrentes do Hangfire
 /// </summary>
-public static class HangfireJobScheduler
+public class HangfireJobScheduler
 {
+    private readonly IBackgroundJobClient _jobs;
+
+    public HangfireJobScheduler(IBackgroundJobClient jobs)
+    {
+        _jobs = jobs;
+    }
+
     /// <summary>
     /// Agenda o job orquestrador que executa a cada 5 minutos
     /// Este job busca clientes e enfileira jobs individuais (1 por cliente)
     /// </summary>
-    public static void ScheduleJobs()
+    public void ScheduleJobs()
     {
-        BackgroundJob.Enqueue<ScheduleSyncJob>(x => x.ExecuteAsync(CancellationToken.None));
+        _jobs.Enqueue<ScheduleSyncJob>(x => x.ExecuteAsync(CancellationToken.None));
         // Nota: 
         // - O job orquestrador usa [DisableConcurrentExecution] para evitar múltiplas execuções
         // - Os jobs individuais (SyncClienteJob) são enfileirados como fire-and-forget
@@ -23,9 +30,9 @@ public static class HangfireJobScheduler
     /// <summary>
     /// Agenda job orquestrador para userGroupEspecifico 
     /// </summary>
-    public static void ScheduleJobsUserGroupId(long userGroupId,long userCompanyId,string creditorDocument,string hashToken, string urlClient)
+    public void ScheduleJobsUserGroupId(long userGroupId,long userCompanyId,string creditorDocument,string hashToken, string urlClient)
     {
-        BackgroundJob.Enqueue<SyncClienteJob>(x => x.ExecuteUserGroupIdAsync(userGroupId,userCompanyId,creditorDocument,hashToken,urlClient,CancellationToken.None));
+        _jobs.Enqueue<SyncClienteJob>(x => x.ExecuteUserGroupIdAsync(userGroupId,userCompanyId,creditorDocument,hashToken,urlClient,CancellationToken.None));
     }
 }
 

@@ -3,6 +3,7 @@ using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee.Configuration;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Configuration;
+using lms_nomus_erp_synchronizer_job.Worker;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
 using Polly.Extensions.Http;
@@ -73,6 +74,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ISynchronizationService, SynchronizationService>();
+        services.AddTransient<HangfireJobScheduler>();
         return services;
     }
 

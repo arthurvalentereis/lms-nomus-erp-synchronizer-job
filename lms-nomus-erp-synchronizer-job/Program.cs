@@ -1,21 +1,51 @@
 using Hangfire;
+using Hangfire.Common;
 using Hangfire.Dashboard;
 using Hangfire.SqlServer;
-using lms_nomus_erp_synchronizer_job.Infrastructure.DependencyInjection;
-using lms_nomus_erp_synchronizer_job.Infrastructure.Logging;
-using lms_nomus_erp_synchronizer_job.Infrastructure.Extensions;
-using Serilog;
 using lms_nomus_erp_synchronizer_job.Domain.Models;
+using lms_nomus_erp_synchronizer_job.Infrastructure.DependencyInjection;
+using lms_nomus_erp_synchronizer_job.Infrastructure.Extensions;
+using lms_nomus_erp_synchronizer_job.Infrastructure.Logging;
+using lms_nomus_erp_synchronizer_job.Worker;
+using Serilog;
+using System.Diagnostics;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = Host.CreateApplicationBuilder(args);
 
-// Configurar Serilog primeiro
-builder.Host.ConfigureSerilog();
+// =====================
+// SERILOG
+// =====================
+builder.Services.AddSerilog((services, loggerConfig) =>
+{
+    var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "app.log");
 
-// Configurar serviços
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
+    loggerConfig
+        .MinimumLevel.Information()
+        .WriteTo.Console()
+        .WriteTo.File(logFilePath, rollingInterval: RollingInterval.Day)
+        .WriteTo.BetterStack(
+            sourceToken: "m21e1qBWn6nuS3NtRqN49d5C",
+            betterStackEndpoint: "https://s1903175.eu-fsn-3.betterstackdata.com"
+        );
+});
 
+
+// =====================
+// WINDOWS SERVICE
+// =====================
+var isService = !(Debugger.IsAttached || args.Contains("--console"));
+
+if (isService)
+{
+    builder.Services.AddWindowsService(options =>
+    {
+        options.ServiceName = ".NET lms-nomus-sync-job";
+    });
+}
+
+// =====================
+// HANGFIRE STORAGE
+// =====================
 // Configurar Hangfire (requer banco de dados apenas para storage de jobs)
 var connectionString = builder.Configuration.GetConnectionString("HangfireConnection")
     ?? throw new InvalidOperationException("Connection string 'HangfireConnection' not found.");
@@ -40,39 +70,44 @@ builder.Services.AddHangfireServer(options =>
     options.WorkerCount = Environment.ProcessorCount; // Usa número de CPUs disponíveis
 });
 
+// =====================
+// DI DA APLICAÇÃO
+// =====================
 // Configurar aplicação e infraestrutura
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 
-var app = builder.Build();
-
 // Configurar Hangfire Dashboard (opcional - remover em produção se não for necessário)
-app.UseHangfireDashboard("/hangfire", new DashboardOptions
-{
-    Authorization = new[] { new HangfireAuthorizationFilter() } // Permitir acesso local
-});
+//app.UseHangfireDashboard("/hangfire", new DashboardOptions
+//{
+//    Authorization = new[] { new HangfireAuthorizationFilter() } // Permitir acesso local
+//});
 
-// Agendar jobs recorrentes DIÁRIO
+// =====================
+// SCHEDULER SERVICE
+// =====================
+builder.Services.AddHostedService<HangfireBootstrapper>();
 
-var userGroupConfiguration = builder.Configuration
-    .GetSection("UserGroupConfiguration")
-    .Get<UserGroupConfiguration>();
-
-// RODAR UMA VEZ (SOMENTE NOVOS CLIENTES)
-if(userGroupConfiguration is not null)
-{
-    if (userGroupConfiguration.Run == false)
-        lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobs();
-
-    if (userGroupConfiguration.Run == true)
-        lms_nomus_erp_synchronizer_job.Worker.HangfireJobScheduler.ScheduleJobsUserGroupId(userGroupConfiguration.UserGroupId, userGroupConfiguration.UserCompanyId, userGroupConfiguration.CreditorDocument, userGroupConfiguration.TokenUser, userGroupConfiguration.UrlUser);
-}
-
-app.MapControllers();
+var host = builder.Build();
 
 Log.Information("Aplicação iniciada. Hangfire Dashboard disponível em /hangfire");
 
-app.Run();
+try
+{
+    Log.Information("Iniciando o job...");
+    var logger = host.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation("Aplicação iniciada com Serilog!");
+    host.Run();
+
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Ocorreu uma falha crítica ao iniciar o worker.");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 /// <summary>
 /// Filtro de autorização simples para o Hangfire Dashboard
