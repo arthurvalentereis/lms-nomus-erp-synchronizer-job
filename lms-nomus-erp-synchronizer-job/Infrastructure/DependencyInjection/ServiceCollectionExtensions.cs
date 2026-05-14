@@ -1,9 +1,9 @@
 using lms_nomus_erp_synchronizer_job.Application.Services;
+using lms_nomus_erp_synchronizer_job.Worker;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee.Configuration;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Configuration;
-using lms_nomus_erp_synchronizer_job.Worker;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
 using Polly.Extensions.Http;
@@ -29,8 +29,18 @@ public static class ServiceCollectionExtensions
 
         var nomusOptions = configuration.GetSection(NomusOptions.SectionName).Get<NomusOptions>();
 
-        // HttpClientFactory para criar clientes Nomus dinamicamente
-        services.AddHttpClient();
+        // HttpClient nomeado: BaseAddress e token vêm do NomusClientFactory por cliente
+        services.AddHttpClient("Nomus")
+            .AddResilienceHandler("nomus-pipeline", builder =>
+            {
+                builder.AddRetry(new HttpRetryStrategyOptions
+                {
+                    MaxRetryAttempts = nomusOptions?.RetryCount ?? 3,
+                    Delay = TimeSpan.FromSeconds(2),
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = true
+                });
+            });
 
         // Factory para criar clientes Nomus com tokens específicos
         services.AddSingleton<INomusClientFactory, NomusClientFactory>();
@@ -73,6 +83,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton<IOrchestratorNextRunScheduler, OrchestratorNextRunScheduler>();
         services.AddScoped<ISynchronizationService, SynchronizationService>();
         services.AddTransient<HangfireJobScheduler>();
         return services;

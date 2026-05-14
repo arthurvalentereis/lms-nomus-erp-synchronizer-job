@@ -1,11 +1,9 @@
-using Hangfire;
 using lms_nomus_erp_synchronizer_job.Application.Mappers;
 using lms_nomus_erp_synchronizer_job.Domain.Models;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee.DTOs;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Mappers;
-using lms_nomus_erp_synchronizer_job.Worker.Jobs;
 using System.Text;
 
 namespace lms_nomus_erp_synchronizer_job.Application.Services;
@@ -20,17 +18,23 @@ namespace lms_nomus_erp_synchronizer_job.Application.Services;
 /// </summary>
 public class SynchronizationService : ISynchronizationService
 {
+    private const int MinutosAteProximoCicloSucesso = 5;
+    private const int MinutosAteProximoCicloErro = 15;
+
     private readonly INomusClientFactory _nomusClientFactory;
     private readonly ILetmeseeService _letmeseeService;
+    private readonly IOrchestratorNextRunScheduler _orchestratorNextRun;
     private readonly ILogger<SynchronizationService> _logger;
 
     public SynchronizationService(
         INomusClientFactory nomusClientFactory,
         ILetmeseeService letmeseeService,
+        IOrchestratorNextRunScheduler orchestratorNextRun,
         ILogger<SynchronizationService> logger)
     {
         _nomusClientFactory = nomusClientFactory;
         _letmeseeService = letmeseeService;
+        _orchestratorNextRun = orchestratorNextRun;
         _logger = logger;
     }
     /// <summary>
@@ -53,55 +57,59 @@ public class SynchronizationService : ISynchronizationService
 
         _logger.LogInformation("Iniciando sincronização do cliente {UserGroupId}", userGroupId);
 
-        // Criar cliente Nomus com token específico
-        var nomusClient = _nomusClientFactory.CreateClient(hashToken,baseUrl);
-        
-        //Vou criar o get dos customers aqui 
-        var customerTask = FetchCustomersAsync(nomusClient, userGroupId, cancellationToken);
+        try
+        {
+            // Criar cliente Nomus com token específico
+            var nomusClient = _nomusClientFactory.CreateClient(hashToken, baseUrl);
+
+            //Vou criar o get dos customers aqui 
+            var customerTask = FetchCustomersAsync(nomusClient, userGroupId, cancellationToken);
 
 
-        // Buscar dados do Nomus em paralelo
-        var boletosTask = FetchBoletosAsync(nomusClient, userGroupId, cancellationToken);
-        var recebimentosTask = FetchRecebimentosAsync(nomusClient, userGroupId, cancellationToken);
-        var contasTask = FetchContasReceberAsync(nomusClient, userGroupId, cancellationToken);
+            // Buscar dados do Nomus em paralelo
+            var boletosTask = FetchBoletosAsync(nomusClient, userGroupId, cancellationToken);
+            var recebimentosTask = FetchRecebimentosAsync(nomusClient, userGroupId, cancellationToken);
+            var contasTask = FetchContasReceberAsync(nomusClient, userGroupId, cancellationToken);
 
-        await Task.WhenAll(customerTask, boletosTask, recebimentosTask, contasTask);
-        //await Task.WhenAll(customerTask);
+            await Task.WhenAll(customerTask, boletosTask, recebimentosTask, contasTask);
+            //await Task.WhenAll(customerTask);
 
-        var boletos = await boletosTask;
-        var recebimentos = await recebimentosTask;
+            var boletos = await boletosTask;
+            var recebimentos = await recebimentosTask;
             recebimentos = recebimentos
-                .Where(r=> r.BaixaContaReceber == true)
+                .Where(r => r.BaixaContaReceber == true)
                 .ToList(); // Filtrar apenas recebimentos com baixa
-        var contasReceber = await contasTask;
+            var contasReceber = await contasTask;
             contasReceber = contasReceber
                 .Where(c => c.Status == true)
                 .ToList();
-        var customers = await customerTask;
+            var customers = await customerTask;
 
-        _logger.LogInformation(
-           "Dados recebidos do Nomus para cliente {UserGroupId}: Boletos: {BoletoCount}, Recebimentos: {RecebimentoCount}, Contas: {ContaCount}",
-          userGroupId, boletos.Count, recebimentos.Count, contasReceber.Count);
+            _logger.LogInformation(
+               "Dados recebidos do Nomus para cliente {UserGroupId}: Boletos: {BoletoCount}, Recebimentos: {RecebimentoCount}, Contas: {ContaCount}",
+              userGroupId, boletos.Count, recebimentos.Count, contasReceber.Count);
 
-        // Enviar invoices para o Letmesee em batches
-        await SendInvoicesInBatchesAsync(boletos, recebimentos, contasReceber, userGroupId,creditorDocument, cancellationToken);  
-        
-        // Enviar customers para o Letmesee em batches
-        await SendCustomerInBatchesAsync(customers, userGroupId,userCompanyId, cancellationToken);
+            // Enviar invoices para o Letmesee em batches
+            await SendInvoicesInBatchesAsync(boletos, recebimentos, contasReceber, userGroupId, creditorDocument, cancellationToken);
 
-        var duration = DateTime.UtcNow - startTime;
-        _logger.LogInformation(
-            "Sincronização do cliente {UserGroupId} concluída. Duração: {Duration}ms",
-            userGroupId, duration.TotalMilliseconds);
+            // Enviar customers para o Letmesee em batches
+            await SendCustomerInBatchesAsync(customers, userGroupId, userCompanyId, cancellationToken);
 
-        Task.Delay(TimeSpan.FromMinutes(4), cancellationToken)
-            .Wait(cancellationToken); // Pequena pausa para garantir que logs sejam processados
-        // ao termino agendo o proximo para daqui a 5 minutos
-        BackgroundJob.Schedule<ScheduleSyncJob>(
-        x => x.ExecuteAsync(CancellationToken.None),
-        TimeSpan.FromMinutes(5));
+            var duration = DateTime.UtcNow - startTime;
+            _logger.LogInformation(
+                "Sincronização do cliente {UserGroupId} concluída. Duração: {Duration}ms",
+                userGroupId, duration.TotalMilliseconds);
+
+            _orchestratorNextRun.ScheduleNext(TimeSpan.FromMinutes(MinutosAteProximoCicloSucesso));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Sincronização do cliente {UserGroupId} falhou; próximo orquestrador em {Minutos} minutos", userGroupId, MinutosAteProximoCicloErro);
+            _orchestratorNextRun.ScheduleNext(TimeSpan.FromMinutes(MinutosAteProximoCicloErro));
+            throw;
+        }
     }
-    
+
     /// <summary>
     /// UserGroupConfiguration.Run = True
     /// </summary>
@@ -203,11 +211,11 @@ public class SynchronizationService : ISynchronizationService
         {
             _logger.LogDebug("Buscando boletos do cliente {UserGroupId}", userGroupId);
             var url = $"rest/boletos";
-           // var boletosDto = await nomusClient.GetAllBoletosAsync(url, cancellationToken);
+            // var boletosDto = await nomusClient.GetAllBoletosAsync(url, cancellationToken);
             //var boletos = boletosDto.Select(BoletoMapper.ToDomain).ToList();
 
             //_logger.LogInformation("Total de boletos recebidos para cliente {UserGroupId}: {Count}",
-              //  userGroupId, boletos.Count);
+            //  userGroupId, boletos.Count);
 
             return [];
         }
@@ -277,9 +285,9 @@ public class SynchronizationService : ISynchronizationService
         {
             _logger.LogDebug("Buscando customers do cliente {UserGroupId}", userGroupId);
             var ontem = DateTime.Now.AddDays(-1);
-            var dataFiltro = ontem.ToString("dd/MM/yyyy"); // formato comum no Nomus
+            var dataFiltro = ontem.ToString("s"); // formato comum no Nomus
 
-            var filtro = $"ativo=true;dataCriacao>={dataFiltro}";
+            var filtro = $"ativo=true;dataModificacao>={dataFiltro}";
             var encoded = Uri.EscapeDataString(filtro);
             var url = $"rest/clientes?query={encoded}";
             var customerDto = await nomusClient.GetCustomerAsync(url, cancellationToken);
@@ -313,7 +321,7 @@ public class SynchronizationService : ISynchronizationService
             //var boletos = boletosDto.Select(BoletoMapper.ToDomain).ToList();
 
             //_logger.LogInformation("Total de boletos recebidos para cliente {UserGroupId}: {Count}",
-               // userGroupId, boletos.Count);
+            // userGroupId, boletos.Count);
 
             return [];
         }
@@ -333,8 +341,8 @@ public class SynchronizationService : ISynchronizationService
         {
             _logger.LogDebug("Buscando recebimentos do cliente {UserGroupId}", userGroupId);
             var ontem = DateTime.Now.AddDays(-1);
-            var dataFiltro = ontem.ToString("dd/MM/yyyy"); // formato comum no Nomus
-            var filtro = $"dataRecebimento>={dataFiltro}";
+            var dataFiltro = ontem.ToString("s"); // formato comum no Nomus
+            var filtro = $"dataModificacao>={dataFiltro}";
             var encoded = Uri.EscapeDataString(filtro);
             var url = $"rest/recebimentos?query={encoded}";
             var recebimentosDto = await nomusClient.GetRecebimentosAsync(url, cancellationToken);
@@ -361,8 +369,8 @@ public class SynchronizationService : ISynchronizationService
         {
             _logger.LogDebug("Buscando contas a receber do cliente {UserGroupId}", userGroupId);
             var ontem = DateTime.Now.AddDays(-1);
-            var dataFiltro = ontem.ToString("dd/MM/yyyy"); // formato comum no Nomus
-            var filtro = $"dataBaixa>={dataFiltro}";
+            var dataFiltro = ontem.ToString("s"); // formato comum no Nomus
+            var filtro = $"dataModificacao>{dataFiltro}";
             var encoded = Uri.EscapeDataString(filtro);
             var url = $"rest/contasReceber?query={encoded}";
             var contasDto = await nomusClient.GetContasReceberAsync(url, cancellationToken);
@@ -445,7 +453,7 @@ public class SynchronizationService : ISynchronizationService
             // Converter dados do Nomus em invoices do Letmesee
             var customers = customer.Select(customer =>
             {
-                return Mappers.CustomerMapper.ToCustomerDto(customer, userGroupId,userCompanyId);
+                return Mappers.CustomerMapper.ToCustomerDto(customer, userGroupId, userCompanyId);
             }).ToList();
 
             if (!customers.Any())
