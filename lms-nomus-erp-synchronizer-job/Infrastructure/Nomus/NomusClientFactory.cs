@@ -25,7 +25,7 @@ public class NomusClientFactory : INomusClientFactory
 
     public INomusClient CreateClient(string clientToken,string baseUrl)
     {
-        var httpClient = _httpClientFactory.CreateClient();
+        var httpClient = _httpClientFactory.CreateClient("Nomus");
         // Configura o HttpClient com o token específico do cliente
         httpClient.BaseAddress = new Uri(
             baseUrl.EndsWith("/") ? baseUrl : baseUrl + "/"

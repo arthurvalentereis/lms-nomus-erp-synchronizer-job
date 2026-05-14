@@ -25,13 +25,14 @@ public class SyncClienteJob
     }
 
     /// <summary>
-    /// Método executado pelo Hangfire para sincronizar 1 cliente
-    /// Usa [DisableConcurrentExecution] para garantir que 1 cliente não seja processado simultaneamente
+    /// Sincroniza um cliente. Sem <c>CancellationToken</c> nos argumentos Hangfire (serialização).
     /// </summary>
     [DisableConcurrentExecution(timeoutInSeconds: 300)] // 5 minutos de timeout por cliente
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 120 })] // Retry com backoff exponencial
-    public async Task ExecuteAsync(long userGroupId,long userCompanyId,string creditorDocument, string hashToken,string baseUrl, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string baseUrl)
     {
+        var cancellationToken = CancellationToken.None;
+
         var correlationId = Guid.NewGuid().ToString();
         using var scope = _logger.BeginScope(new Dictionary<string, object>
         {
@@ -71,8 +72,10 @@ public class SyncClienteJob
     /// </summary>
     [DisableConcurrentExecution(timeoutInSeconds: 300)] // 5 minutos de timeout por cliente
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 120 })] // Retry com backoff exponencial
-    public async Task ExecuteUserGroupIdAsync(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string baseUrl, CancellationToken cancellationToken = default)
+    public async Task ExecuteUserGroupIdAsync(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string baseUrl)
     {
+        var cancellationToken = CancellationToken.None;
+
         var correlationId = Guid.NewGuid().ToString();
         using var scope = _logger.BeginScope(new Dictionary<string, object>
         {
