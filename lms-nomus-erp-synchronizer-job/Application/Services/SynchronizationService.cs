@@ -100,6 +100,9 @@ public class SynchronizationService : ISynchronizationService
                 "Sincronização do cliente {UserGroupId} concluída. Duração: {Duration}ms",
                 userGroupId, duration.TotalMilliseconds);
 
+            Task.Delay(TimeSpan.FromMinutes(4), cancellationToken)
+            .Wait(cancellationToken); // Pequena pausa para garantir que logs sejam processados
+                                      // ao termino agendo o proximo para daqui a 5 minutos
             _orchestratorNextRun.ScheduleNext(TimeSpan.FromMinutes(MinutosAteProximoCicloSucesso));
         }
         catch (Exception ex)
