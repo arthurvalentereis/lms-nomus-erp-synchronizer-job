@@ -17,7 +17,7 @@ public interface ILetmeseeService
     /// Envia uma lista de invoices para o Letmesee
     /// </summary>
     Task SendInvoicesAsync(IEnumerable<RequestInvoiceDto> invoices, CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Envia uma lista de invoices para o Letmesee
     /// </summary>

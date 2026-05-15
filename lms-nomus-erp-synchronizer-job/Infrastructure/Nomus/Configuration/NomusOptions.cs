@@ -26,5 +26,11 @@ public class NomusOptions
     /// Número de tentativas de retry em caso de falha (padrão: 3)
     /// </summary>
     public int RetryCount { get; set; } = 3;
+
+    /// <summary>
+    /// Limite opcional de páginas por requisição (0 = sem limite; percorre até página vazia/nula).
+    /// Use apenas como rede de segurança em ambientes de teste.
+    /// </summary>
+    public int MaxPaginasSafetyLimit { get; set; }
 }
 

@@ -40,13 +40,13 @@ public class LetmeseeService : ILetmeseeService
         var baseUrl = _options.BaseUrl.TrimEnd('/');
         _httpClient.BaseAddress = new Uri(baseUrl);
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds);
-        
+
         if (!string.IsNullOrEmpty(_options.AuthToken))
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
+            _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", _options.AuthToken);
         }
-        
+
         _httpClient.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
     }
@@ -54,7 +54,7 @@ public class LetmeseeService : ILetmeseeService
     public async Task<IEnumerable<NomusCustomersDto>> GetNomusCustomersAsync(CancellationToken cancellationToken = default)
     {
         const string endpoint = "workerIntegration/list-customer-nomus";
-        
+
         try
         {
             _logger.LogDebug("Buscando clientes Nomus do Letmesee. Endpoint: {Endpoint}", endpoint);
@@ -102,22 +102,15 @@ public class LetmeseeService : ILetmeseeService
         }
     }
 
-    public async Task SendInvoicesAsync(IEnumerable<RequestInvoiceDto> invoices, CancellationToken cancellationToken = default)
+    public async Task SendInvoicesAsync(IEnumerable<RequestInvoiceDto> invoice, CancellationToken cancellationToken = default)
     {
-        const string endpoint = "workerIntegration/add-list";
-        var invoicesList = invoices.ToList();
-
-        if (!invoicesList.Any())
-        {
-            _logger.LogWarning("Nenhuma invoice para enviar");
-            return;
-        }
+        const string endpoint = "api/workerIntegration/add-list";
 
         try
         {
-            _logger.LogInformation("Enviando {Count} invoices para o Letmesee", invoicesList.Count);
+            _logger.LogInformation("Enviando {Count} invoices para o Letmesee", invoice.Count());
 
-            var json = JsonSerializer.Serialize(invoicesList, _jsonOptions);
+            var json = JsonSerializer.Serialize(invoice.ToList(), _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             string url = $"{_options.BaseUrl}{endpoint}";
@@ -160,7 +153,7 @@ public class LetmeseeService : ILetmeseeService
     }
     public async Task SendCustomerAsync(IEnumerable<RequestCustomerDto> customers, CancellationToken cancellationToken = default)
     {
-        const string endpoint = "workerIntegration/add-customers";
+        const string endpoint = "api/workerIntegration/add-customers";
         var customerList = customers.ToList();
 
         if (!customerList.Any())

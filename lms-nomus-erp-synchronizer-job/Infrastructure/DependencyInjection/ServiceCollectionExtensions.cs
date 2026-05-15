@@ -84,6 +84,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IOrchestratorNextRunScheduler, OrchestratorNextRunScheduler>();
+        services.AddScoped<IFullHistorySynchronizationService, FullHistorySynchronizationService>();
         services.AddScoped<ISynchronizationService, SynchronizationService>();
         services.AddTransient<HangfireJobScheduler>();
         return services;

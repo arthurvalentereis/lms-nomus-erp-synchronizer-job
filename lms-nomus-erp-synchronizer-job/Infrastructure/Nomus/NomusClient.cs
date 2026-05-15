@@ -1,20 +1,14 @@
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using lms_nomus_erp_synchronizer_job.Domain.Models;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Configuration;
-using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.DTOs;
 using Microsoft.Extensions.Options;
-using Polly;
-using Polly.Extensions.Http;
 
 namespace lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 
 /// <summary>
-/// Implementação do cliente HTTP para integração com a API REST do ERP Nomus
-/// Utiliza HttpClientFactory, Polly para retry policies e tratamento resiliente de erros
+/// Cliente HTTP para a API REST do Nomus.
 /// </summary>
 public class NomusClient : INomusClient
 {
@@ -22,6 +16,8 @@ public class NomusClient : INomusClient
     private readonly ILogger<NomusClient> _logger;
     private readonly NomusOptions _options;
     private readonly JsonSerializerOptions _jsonOptions;
+
+    private const string ParametroPagina = "pagina";
 
     public NomusClient(
         HttpClient httpClient,
@@ -37,170 +33,122 @@ public class NomusClient : INomusClient
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
-        ConfigureHttpClient();
-    }
-
-    private void ConfigureHttpClient()
-    {
-        // HttpClient já deve estar configurado pela factory ou construtor
-        // Apenas garante que o Accept header está configurado se não estiver
         if (!_httpClient.DefaultRequestHeaders.Accept.Contains(
-            new MediaTypeWithQualityHeaderValue("application/json")))
+                new MediaTypeWithQualityHeaderValue("application/json")))
         {
             _httpClient.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json"));
         }
     }
 
-    /// <summary>
-    /// Cria uma política de retry para requisições HTTP
-    /// Retry em caso de falhas transitórias (5xx, 408, network errors)
-    /// </summary>
-    public static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(int retryCount = 3)
+    public Task<IReadOnlyList<TItem>> GetPageAsync<TItem>(string url, int pagina, CancellationToken cancellationToken = default)
+        => FetchPageAsync<TItem>(url, pagina, cancellationToken);
+
+    public async IAsyncEnumerable<IReadOnlyList<TItem>> StreamPagesAsync<TItem>(
+        string url,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        return HttpPolicyExtensions
-            .HandleTransientHttpError()
-            .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            .WaitAndRetryAsync(
-                retryCount,
-                retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                onRetry: (outcome, timespan, retryCount, context) =>
-                {
-                    // Log será feito pelo middleware/logging automático
-                });
-    }
-    public async Task<IEnumerable<CustomerDto>> GetCustomerAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<CustomerDto>(url, cancellationToken);
-    public async Task<IEnumerable<BoletoDto>> GetBoletosAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<BoletoDto>(url, cancellationToken);
+        var pagina = 1;
+        var safetyLimit = _options.MaxPaginasSafetyLimit;
 
-    public async Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<RecebimentoDto>(url, cancellationToken);
-
-    public async Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<ContaReceberDto>(url, cancellationToken);
-    public async Task<IEnumerable<CustomerDto>> GetAllCustomerAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<CustomerDto>(url, cancellationToken);
-    public async Task<IEnumerable<BoletoDto>> GetAllBoletosAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<BoletoDto>(url, cancellationToken);
-
-    public async Task<IEnumerable<RecebimentoDto>> GetAllRecebimentosAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<RecebimentoDto>(url, cancellationToken);
-
-    public async Task<IEnumerable<ContaReceberDto>> GetAllContasReceberAsync(string url, CancellationToken cancellationToken = default)
-    => await GetAsync<ContaReceberDto>(url, cancellationToken);
-
-    private const int MaxPaginas = 100;
-    private const string ParametroPagina = "pagina"; // conforme documentação Nomus (Postman)
-
-    private async Task<List<TItem>> GetAsync<TItem>(string endpointBase, CancellationToken cancellationToken)
-    {
-        try
+        while (true)
         {
-            _logger.LogDebug("Fazendo requisição GET paginada para: {Endpoint} (máx. {Max} páginas)", endpointBase, MaxPaginas);
-
-            var resultados = new List<TItem>();
-            var pagina = 1;
-            var separator = endpointBase.Contains('?') ? "&" : "?";
-
-            while (pagina <= MaxPaginas)
+            if (safetyLimit > 0 && pagina > safetyLimit)
             {
-                var endpoint = $"{endpointBase}{separator}{ParametroPagina}={pagina}";
-
-                _logger.LogDebug("Buscando página {Pagina}: {Endpoint}", pagina, endpoint);
-
-                var response = await SendWithRetryAsync(endpoint, cancellationToken);
-                response.EnsureSuccessStatusCode();
-
-                var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                var dados = await JsonSerializer.DeserializeAsync<List<TItem>>(
-                    stream,
-                    _jsonOptions,
-                    cancellationToken);
-
-                if (dados == null || dados.Count == 0)
-                {
-                    _logger.LogDebug("Página {Pagina} vazia ou nula, encerrando paginação.", pagina);
-                    break;
-                }
-
-                resultados.AddRange(dados);
-                _logger.LogDebug("Página {Pagina}: {Count} itens (total acumulado: {Total}).", pagina, dados.Count, resultados.Count);
-                pagina++;
+                _logger.LogWarning(
+                    "MaxPaginasSafetyLimit ({Limit}) atingido em {Url}.",
+                    safetyLimit,
+                    url);
+                yield break;
             }
 
-            if (pagina > MaxPaginas)
-                _logger.LogWarning("Limite de {Max} páginas atingido para: {Endpoint}. Total de itens: {Total}.", MaxPaginas, endpointBase, resultados.Count);
+            var dados = await FetchPageAsync<TItem>(url, pagina, cancellationToken);
+            if (dados.Count == 0)
+            {
+                _logger.LogDebug("Página {Pagina} de {Url} vazia — fim da paginação.", pagina, url);
+                yield break;
+            }
 
-            _logger.LogDebug("Requisição paginada concluída para: {Endpoint}. Páginas: {Paginas}, Total itens: {Total}.", endpointBase, pagina - 1, resultados.Count);
-            return resultados;
+            _logger.LogDebug("Página {Pagina} de {Url}: {Count} itens.", pagina, url, dados.Count);
+            yield return dados;
+            pagina++;
+        }
+    }
+
+    private async Task<IReadOnlyList<TItem>> FetchPageAsync<TItem>(
+        string url,
+        int pagina,
+        CancellationToken cancellationToken)
+    {
+        var separator = url.Contains('?') ? "&" : "?";
+        var endpoint = $"{url}{separator}{ParametroPagina}={pagina}";
+
+        try
+        {
+            var response = await SendWithRetryAsync(endpoint, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var dados = await JsonSerializer.DeserializeAsync<List<TItem>>(
+                stream,
+                _jsonOptions,
+                cancellationToken);
+
+            return dados ?? [];
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Erro HTTP ao buscar dados do endpoint: {Endpoint}", endpointBase);
+            _logger.LogError(ex, "Erro HTTP na página {Pagina}: {Url}", pagina, url);
             throw;
         }
         catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
         {
-            _logger.LogError("Timeout ao buscar dados do endpoint: {Endpoint}", endpointBase);
+            _logger.LogError("Timeout na página {Pagina}: {Url}", pagina, url);
             throw;
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "Erro ao deserializar resposta do endpoint: {Endpoint}", endpointBase);
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro inesperado ao buscar dados do endpoint: {Endpoint}", endpointBase);
+            _logger.LogError(ex, "Erro ao deserializar página {Pagina}: {Url}", pagina, url);
             throw;
         }
     }
 
-    private async Task<HttpResponseMessage> SendWithRetryAsync(
-    string endpoint,
-    CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendWithRetryAsync(string endpoint, CancellationToken cancellationToken)
     {
         const int maxTentativas = 5;
-        int tentativa = 0;
 
-        while (true)
+        for (var tentativa = 1; tentativa <= maxTentativas; tentativa++)
         {
-            tentativa++;
-
             var response = await _httpClient.GetAsync(endpoint, cancellationToken);
 
             if (response.StatusCode != System.Net.HttpStatusCode.TooManyRequests)
                 return response;
 
             if (tentativa >= maxTentativas)
-                throw new Exception("Limite de tentativas excedido (429).");
+                throw new InvalidOperationException("Limite de tentativas excedido (429).");
 
-            int tempoEsperaSegundos = 5; // fallback padrão
+            var tempoEsperaSegundos = 5;
 
             try
             {
                 var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-
                 var erro = await JsonSerializer.DeserializeAsync<RateLimitResponse>(
                     stream,
                     _jsonOptions,
                     cancellationToken);
 
                 if (Convert.ToInt32(erro?.TempoAteLiberar) > 0)
-                    tempoEsperaSegundos = Convert.ToInt32(erro?.TempoAteLiberar);
+                    tempoEsperaSegundos = Convert.ToInt32(erro.TempoAteLiberar);
             }
             catch
             {
                 _logger.LogWarning("Não foi possível ler tempoAteLiberar do 429. Usando fallback.");
             }
 
-            _logger.LogWarning(
-                "429 recebido. Aguardando {Tempo}s antes de tentar novamente...",
-                tempoEsperaSegundos);
-
+            _logger.LogWarning("429 recebido. Aguardando {Tempo}s…", tempoEsperaSegundos);
             await Task.Delay(TimeSpan.FromSeconds(tempoEsperaSegundos), cancellationToken);
         }
+
+        throw new InvalidOperationException("Unreachable");
     }
 }
-

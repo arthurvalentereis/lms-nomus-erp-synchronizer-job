@@ -1,51 +1,13 @@
-using lms_nomus_erp_synchronizer_job.Domain.Models;
-using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.DTOs;
-
 namespace lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 
 /// <summary>
-/// Cliente para integração com a API REST do ERP Nomus
+/// Cliente para integração com a API REST do ERP Nomus (paginação via <c>?pagina=N</c>).
 /// </summary>
 public interface INomusClient
 {
-    /// <summary>
-    /// Busca clientes d-1 gerados
-    /// </summary>
-    Task<IEnumerable<CustomerDto>> GetCustomerAsync(string url , CancellationToken cancellationToken = default);
+    /// <summary>Uma página (<c>?pagina=N</c>).</summary>
+    Task<IReadOnlyList<TItem>> GetPageAsync<TItem>(string url, int pagina, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Busca todos os boletos gerados d-1
-    /// </summary>
-    Task<IEnumerable<BoletoDto>> GetBoletosAsync(string url, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Busca todos os recebimentos d-1
-    /// </summary>
-    Task<IEnumerable<RecebimentoDto>> GetRecebimentosAsync(string url, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Busca todas as contas a receber d-1
-    /// </summary>
-    Task<IEnumerable<ContaReceberDto>> GetContasReceberAsync(string url, CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Busca todos os clientes criados
-    /// </summary>
-    Task<IEnumerable<CustomerDto>> GetAllCustomerAsync(string url, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Busca todos os boletos gerados
-    /// </summary>
-    Task<IEnumerable<BoletoDto>> GetAllBoletosAsync(string url, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Busca todos os recebimentos
-    /// </summary>
-    Task<IEnumerable<RecebimentoDto>> GetAllRecebimentosAsync(string url, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Busca todas as contas a receber
-    /// </summary>
-    Task<IEnumerable<ContaReceberDto>> GetAllContasReceberAsync(string url, CancellationToken cancellationToken = default);
+    /// <summary>Páginas 1, 2, 3… até lista vazia ou nula.</summary>
+    IAsyncEnumerable<IReadOnlyList<TItem>> StreamPagesAsync<TItem>(string url, CancellationToken cancellationToken = default);
 }
-

@@ -35,7 +35,7 @@ public static class InvoiceMapper
             Description = $"Conta a Receber {contaReceber.Id} - {contaReceber.Classificacao}",
             Type = contaReceber.Tipo.ToString(),
             WasPaid = contaReceber.Status == true,
-            PayDay = contaReceber.DataBaixa,
+            PayDay = VerifyIsMinimumDate(contaReceber.DataBaixa),
             InvoiceInstallment = ObterNumeroParcela(recebimentoInfo?.Descricao ?? "") ?? 1,
             CreditorDocument = creditorDocument
         };
@@ -68,6 +68,15 @@ public static class InvoiceMapper
             return int.Parse(match.Groups[1].Value);
 
         return null;
+    }
+    public static DateTime? VerifyIsMinimumDate(DateTime? date)
+    {
+        if(date == null)
+            return null;
+        if (date.HasValue)
+            if(date.Value == DateTime.MinValue) return null;
+
+        return date;
     }
     public static string LimparDocumento(string documento)
     {
