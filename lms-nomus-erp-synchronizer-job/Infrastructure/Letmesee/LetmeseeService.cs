@@ -104,7 +104,7 @@ public class LetmeseeService : ILetmeseeService
 
     public async Task SendInvoicesAsync(IEnumerable<RequestInvoiceDto> invoice, CancellationToken cancellationToken = default)
     {
-        const string endpoint = "api/workerIntegration/add-list";
+        const string endpoint = "workerIntegration/add-list";
 
         try
         {
@@ -153,7 +153,7 @@ public class LetmeseeService : ILetmeseeService
     }
     public async Task SendCustomerAsync(IEnumerable<RequestCustomerDto> customers, CancellationToken cancellationToken = default)
     {
-        const string endpoint = "api/workerIntegration/add-customers";
+        const string endpoint = "workerIntegration/add-customers";
         var customerList = customers.ToList();
 
         if (!customerList.Any())

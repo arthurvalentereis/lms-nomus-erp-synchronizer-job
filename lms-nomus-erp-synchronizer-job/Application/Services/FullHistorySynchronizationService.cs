@@ -51,8 +51,8 @@ public sealed class FullHistorySynchronizationService : IFullHistorySynchronizat
 
         var nomusClient = _nomusClientFactory.CreateClient(hashToken, baseUrl);
 
-        //var customersSent = await SyncCustomersAsync(
-            //nomusClient, userGroupId, userCompanyId, cancellationToken);
+        var customersSent = await SyncCustomersAsync(
+            nomusClient, userGroupId, userCompanyId, cancellationToken);
 
         var invoicesSent = await SyncInvoicesAsync(
             nomusClient, userGroupId, creditorDocument, cancellationToken);
