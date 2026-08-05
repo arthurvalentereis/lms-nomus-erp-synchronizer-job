@@ -189,21 +189,126 @@ public class LetmeseeService : ILetmeseeService
             response.EnsureSuccessStatusCode();
 
             //var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogInformation("Invoices enviadas com sucesso. Resposta: {Response}", responseContent);
+            _logger.LogInformation("Customers enviados com sucesso. Resposta: {Response}", responseContent);
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Erro HTTP ao enviar invoices para o endpoint: {Endpoint}", endpoint);
+            _logger.LogError(ex, "Erro HTTP ao enviar customers para o endpoint: {Endpoint}", endpoint);
             throw;
         }
         catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
         {
-            _logger.LogError("Timeout ao enviar invoices para o endpoint: {Endpoint}", endpoint);
+            _logger.LogError("Timeout ao enviar customers para o endpoint: {Endpoint}", endpoint);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro inesperado ao enviar invoices para o endpoint: {Endpoint}", endpoint);
+            _logger.LogError(ex, "Erro inesperado ao enviar customers para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+    }
+
+    public async Task SendSupplierInvoicesAsync(IEnumerable<RequestInvoiceDto> invoice, CancellationToken cancellationToken = default)
+    {
+        const string endpoint = "workerIntegration/import-supplier-invoices";
+
+        try
+        {
+            _logger.LogInformation("Enviando {Count} supplier invoices para o Letmesee", invoice.Count());
+
+            var json = JsonSerializer.Serialize(invoice.ToList(), _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            string url = $"{_options.BaseUrl}{endpoint}";
+
+            HttpRequestMessage request = new HttpRequestMessage
+            {
+                RequestUri = new Uri(url),
+                Method = new HttpMethod("POST"),
+                Content = content
+            };
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Erro:");
+                Console.WriteLine(responseContent);
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            _logger.LogInformation("Supplier invoices enviadas com sucesso. Resposta: {Response}", responseContent);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Erro HTTP ao enviar supplier invoices para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            _logger.LogError("Timeout ao enviar supplier invoices para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro inesperado ao enviar supplier invoices para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+    }
+
+    public async Task SendSuppliersAsync(IEnumerable<RequestCustomerDto> suppliers, CancellationToken cancellationToken = default)
+    {
+        const string endpoint = "workerIntegration/add-supplier";
+        var supplierList = suppliers.ToList();
+
+        if (!supplierList.Any())
+        {
+            _logger.LogWarning("Nenhum supplier para enviar");
+            return;
+        }
+
+        try
+        {
+            _logger.LogInformation("Enviando {Count} suppliers para o Letmesee", supplierList.Count);
+
+            var json = JsonSerializer.Serialize(supplierList, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            string url = $"{_options.BaseUrl}{endpoint}";
+
+            HttpRequestMessage request = new HttpRequestMessage
+            {
+                RequestUri = new Uri(url),
+                Method = new HttpMethod("POST"),
+                Content = content
+            };
+            var response = await _httpClient.SendAsync(request, cancellationToken);
+            var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Erro:");
+                Console.WriteLine(responseContent);
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            _logger.LogInformation("Suppliers enviados com sucesso. Resposta: {Response}", responseContent);
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Erro HTTP ao enviar suppliers para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        {
+            _logger.LogError("Timeout ao enviar suppliers para o endpoint: {Endpoint}", endpoint);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro inesperado ao enviar suppliers para o endpoint: {Endpoint}", endpoint);
             throw;
         }
     }

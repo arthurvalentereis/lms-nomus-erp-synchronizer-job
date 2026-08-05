@@ -22,5 +22,15 @@ public interface ILetmeseeService
     /// Envia uma lista de invoices para o Letmesee
     /// </summary>
     Task SendCustomerAsync(IEnumerable<RequestCustomerDto> customers, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Envia supplier invoices (contas a pagar) para o Letmesee
+    /// </summary>
+    Task SendSupplierInvoicesAsync(IEnumerable<RequestInvoiceDto> invoices, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Envia suppliers (pessoas/fornecedores) para o Letmesee
+    /// </summary>
+    Task SendSuppliersAsync(IEnumerable<RequestCustomerDto> suppliers, CancellationToken cancellationToken = default);
 }
 

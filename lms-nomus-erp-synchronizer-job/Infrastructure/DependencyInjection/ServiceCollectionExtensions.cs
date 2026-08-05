@@ -86,6 +86,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IOrchestratorNextRunScheduler, OrchestratorNextRunScheduler>();
         services.AddScoped<IFullHistorySynchronizationService, FullHistorySynchronizationService>();
         services.AddScoped<ISynchronizationService, SynchronizationService>();
+        services.AddScoped<IFullHistoryPayableSynchronizationService, FullHistoryPayableSynchronizationService>();
+        services.AddScoped<IPayableSynchronizationService, PayableSynchronizationService>();
         services.AddTransient<HangfireJobScheduler>();
         return services;
     }
