@@ -19,6 +19,9 @@ public class PessoaDto
     [JsonPropertyName("cnpj")]
     public string Cnpj { get; set; } = string.Empty;
 
+    [JsonPropertyName("cpf")]
+    public string? Cpf { get; set; }
+
     [JsonPropertyName("complemento")]
     public string Complemento { get; set; } = string.Empty;
 

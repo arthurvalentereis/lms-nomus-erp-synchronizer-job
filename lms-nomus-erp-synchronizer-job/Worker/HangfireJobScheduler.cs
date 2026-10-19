@@ -31,11 +31,17 @@ public class HangfireJobScheduler
         _jobs.Enqueue<ScheduleSyncJob>(x => x.ExecuteAsync());
     }
     /// <summary>
-    /// Agenda job orquestrador para userGroupEspecifico 
+    /// Agenda sync para um UserGroupId específico (ex.: tenant de teste no appsettings).
     /// </summary>
-    public void ScheduleJobsUserGroupId(long userGroupId,long userCompanyId,string creditorDocument,string hashToken, string urlClient)
+    public void ScheduleJobsUserGroupId(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string urlClient, bool fullHistory = false)
     {
-        _jobs.Enqueue<SyncClienteJob>(x => x.ExecuteUserGroupIdAsync(userGroupId, userCompanyId, creditorDocument, hashToken, urlClient));
+        if (fullHistory)
+        {
+            _jobs.Enqueue<SyncClienteJob>(x => x.ExecuteUserGroupIdAsync(userGroupId, userCompanyId, creditorDocument, hashToken, urlClient));
+            return;
+        }
+
+        _jobs.Enqueue<SyncClienteJob>(x => x.ExecuteAsync(userGroupId, userCompanyId, creditorDocument, hashToken, urlClient));
     }
 }
 

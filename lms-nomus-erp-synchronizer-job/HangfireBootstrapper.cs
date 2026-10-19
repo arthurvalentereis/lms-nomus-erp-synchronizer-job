@@ -46,7 +46,8 @@ public class HangfireBootstrapper : IHostedService
                     userGroupConfiguration.UserCompanyId,
                     userGroupConfiguration.CreditorDocument,
                     userGroupConfiguration.TokenUser,
-                    userGroupConfiguration.UrlUser);
+                    userGroupConfiguration.UrlUser,
+                    userGroupConfiguration.FullHistory);
             }
         }
 

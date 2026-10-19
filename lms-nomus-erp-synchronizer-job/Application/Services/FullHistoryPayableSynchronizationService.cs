@@ -1,32 +1,38 @@
 using lms_nomus_erp_synchronizer_job.Application.Mappers;
 using lms_nomus_erp_synchronizer_job.Domain.Models;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee;
+using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee.Configuration;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Letmesee.DTOs;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.DTOs;
 using lms_nomus_erp_synchronizer_job.Infrastructure.Nomus.Mappers;
+using Microsoft.Extensions.Options;
 
 namespace lms_nomus_erp_synchronizer_job.Application.Services;
 
 /// <summary>
-/// Carga inicial do histórico de contas a pagar: Nomus página a página → buffer → Letmesee em lotes de 1000.
+/// Carga inicial do histórico de contas a pagar: Nomus página a página → buffer → Letmesee em lotes configuráveis.
+/// Pessoas viram dicionário idPessoa → documento; invoices hidratam BuyerDocument por esse cache.
 /// </summary>
 public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayableSynchronizationService
 {
-    public const int LetmeseeBatchSize = 1000;
-
     private readonly INomusClientFactory _nomusClientFactory;
     private readonly ILetmeseeService _letmeseeService;
     private readonly ILogger<FullHistoryPayableSynchronizationService> _logger;
+    private readonly int _batchSize;
 
     public FullHistoryPayableSynchronizationService(
         INomusClientFactory nomusClientFactory,
         ILetmeseeService letmeseeService,
+        IOptions<LetmeseeOptions> letmeseeOptions,
         ILogger<FullHistoryPayableSynchronizationService> logger)
     {
         _nomusClientFactory = nomusClientFactory;
         _letmeseeService = letmeseeService;
         _logger = logger;
+        _batchSize = letmeseeOptions.Value.BatchSize > 0
+            ? letmeseeOptions.Value.BatchSize
+            : 1000;
     }
 
     public async Task ExecuteAsync(
@@ -47,15 +53,15 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
         _logger.LogInformation(
             "Iniciando carga de histórico completo de contas a pagar do cliente {UserGroupId} (Letmesee: lotes de {BatchSize})",
             userGroupId,
-            LetmeseeBatchSize);
+            _batchSize);
 
         var nomusClient = _nomusClientFactory.CreateClient(hashToken, baseUrl);
 
-        var suppliersSent = await SyncSuppliersAsync(
+        var (suppliersSent, documentCache) = await SyncSuppliersAsync(
             nomusClient, userGroupId, userCompanyId, cancellationToken);
 
         var invoicesSent = await SyncSupplierInvoicesAsync(
-            nomusClient, userGroupId, creditorDocument, cancellationToken);
+            nomusClient, userGroupId, creditorDocument, documentCache, cancellationToken);
 
         var duration = DateTime.UtcNow - startTime;
         _logger.LogInformation(
@@ -66,7 +72,7 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
             duration.TotalMilliseconds);
     }
 
-    private async Task<int> SyncSuppliersAsync(
+    private async Task<(int TotalSent, Dictionary<long, string> DocumentCache)> SyncSuppliersAsync(
         INomusClient nomusClient,
         long userGroupId,
         long userCompanyId,
@@ -77,58 +83,64 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
         var url = $"rest/pessoas?query={encoded}";
 
         var sendBuffer = new LetmeseePagedBuffer<RequestCustomerDto>(
-            LetmeseeBatchSize,
+            _batchSize,
             batch => _letmeseeService.SendSuppliersAsync(batch, cancellationToken));
 
+        var documentCache = new Dictionary<long, string>();
         var pagina = 0;
 
         await foreach (var page in nomusClient.StreamPagesAsync<PessoaDto>(url, cancellationToken))
         {
             pagina++;
-            var mapped = page
-                .Select(PessoaMapper.ToDomain)
+            var suppliers = page.Select(PessoaMapper.ToDomain).ToList();
+
+            foreach (var kv in SupplierDocumentResolver.BuildDocumentCache(suppliers))
+                documentCache[kv.Key] = kv.Value;
+
+            var mapped = suppliers
                 .Select(s => SupplierMapper.ToSupplierDto(s, userGroupId, userCompanyId))
                 .ToList();
 
             sendBuffer.AddRange(mapped);
             await sendBuffer.FlushPendingAsync(cancellationToken);
 
-            _logger.LogDebug(
-                "Suppliers página {Pagina}: {Count} itens (pendente no buffer: {Pending})",
+            _logger.LogInformation(
+                "Suppliers página {Pagina}: {Count} enviados ao buffer (cache docs: {CacheCount}) cliente {UserGroupId}",
                 pagina,
                 mapped.Count,
-                sendBuffer.PendingCount);
+                documentCache.Count,
+                userGroupId);
         }
 
         await sendBuffer.FlushRemainderAsync(cancellationToken);
 
         _logger.LogInformation(
-            "Histórico de suppliers do cliente {UserGroupId}: {TotalSent} enviados em {Paginas} páginas Nomus",
+            "Histórico de suppliers do cliente {UserGroupId}: {TotalSent} enviados em {Paginas} páginas Nomus (cache documentos: {CacheCount})",
             userGroupId,
             sendBuffer.TotalSent,
-            pagina);
+            pagina,
+            documentCache.Count);
 
-        return sendBuffer.TotalSent;
+        return (sendBuffer.TotalSent, documentCache);
     }
 
-    /// <summary>
-    /// Contas a pagar guiam a paginação; pagamentos usam o mesmo índice de página.
-    /// Encerra quando a página de contas vier vazia.
-    /// </summary>
     private async Task<int> SyncSupplierInvoicesAsync(
         INomusClient nomusClient,
         long userGroupId,
         string creditorDocument,
+        IReadOnlyDictionary<long, string> documentCache,
         CancellationToken cancellationToken)
     {
         const string contasUrl = "rest/contasPagar";
         const string pagamentosUrl = "rest/pagamentos";
 
         var sendBuffer = new LetmeseePagedBuffer<RequestInvoiceDto>(
-            LetmeseeBatchSize,
+            _batchSize,
             batch => _letmeseeService.SendSupplierInvoicesAsync(batch, cancellationToken));
 
         var pagina = 0;
+        var hydratedTotal = 0;
+        var withoutDocTotal = 0;
 
         while (true)
         {
@@ -137,7 +149,7 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
 
             if (contasDto.Count == 0)
             {
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "Contas a pagar página {Pagina} vazia — fim do histórico de supplier invoices (cliente {UserGroupId})",
                     pagina,
                     userGroupId);
@@ -153,6 +165,9 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
                 .Select(PagamentoMapper.ToDomain)
                 .ToList();
 
+            hydratedTotal += SupplierDocumentResolver.HydrateContasFromCache(contas, documentCache);
+            withoutDocTotal += contas.Count(c => string.IsNullOrWhiteSpace(c.CnpjCpfPessoa));
+
             var pageInvoices = SupplierInvoiceMapper.ToInvoiceDtos(
                 contas,
                 pagamentos,
@@ -162,23 +177,26 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
             sendBuffer.AddRange(pageInvoices);
             await sendBuffer.FlushPendingAsync(cancellationToken);
 
-            _logger.LogDebug(
-                "Supplier invoices página {Pagina} (cliente {UserGroupId}): {Contas} contas → {Invoices} invoices (pendente: {Pending})",
+            _logger.LogInformation(
+                "Supplier invoices página {Pagina} (cliente {UserGroupId}): {Contas} contas → {Invoices} invoices (hidratadas {HydratedPage}, sem doc acumulado {WithoutDoc})",
                 pagina,
                 userGroupId,
                 contas.Count,
                 pageInvoices.Count,
-                sendBuffer.PendingCount);
+                contas.Count(c => !string.IsNullOrWhiteSpace(c.CnpjCpfPessoa)),
+                withoutDocTotal);
         }
 
         await sendBuffer.FlushRemainderAsync(cancellationToken);
 
         _logger.LogInformation(
-            "Histórico de supplier invoices do cliente {UserGroupId}: {TotalSent} enviadas em {Paginas} páginas Nomus (lotes de {BatchSize})",
+            "Histórico de supplier invoices do cliente {UserGroupId}: {TotalSent} enviadas em {Paginas} páginas Nomus (lotes de {BatchSize}); documentos hidratados {Hydrated}, sem documento {WithoutDoc}",
             userGroupId,
             sendBuffer.TotalSent,
             pagina > 0 ? pagina - 1 : 0,
-            LetmeseeBatchSize);
+            _batchSize,
+            hydratedTotal,
+            withoutDocTotal);
 
         return sendBuffer.TotalSent;
     }

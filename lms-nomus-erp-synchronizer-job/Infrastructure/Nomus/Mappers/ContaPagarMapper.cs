@@ -19,9 +19,10 @@ public static class ContaPagarMapper
             DataVencimento = DateHelper.ParseDate(dto.DataVencimento),
             DataCompetencia = DateHelper.ParseDate(dto.DataCompetencia),
             DataBaixa = DateHelper.ParseDate(dto.DataBaixa),
-            ValorReceber = CurrencyHelper.ParseBrazilianCurrency(dto.ValorReceber),
-            ValorRecebido = CurrencyHelper.ParseBrazilianCurrency(dto.ValorRecebido),
-            SaldoReceber = CurrencyHelper.ParseBrazilianCurrency(dto.SaldoReceber),
+            // Nomus retorna saída de caixa como negativo; Letmesee espera magnitude positiva
+            ValorReceber = Math.Abs(CurrencyHelper.ParseBrazilianCurrency(dto.ValorReceber)),
+            ValorRecebido = Math.Abs(CurrencyHelper.ParseBrazilianCurrency(dto.ValorRecebido)),
+            SaldoReceber = Math.Abs(CurrencyHelper.ParseBrazilianCurrency(dto.SaldoReceber)),
             Status = dto.Status,
             Tipo = dto.Tipo,
             Classificacao = dto.Classificacao,

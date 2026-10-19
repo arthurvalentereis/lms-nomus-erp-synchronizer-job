@@ -17,9 +17,10 @@ public static class PagamentoMapper
             IdContaPagar = dto.IdContaPagar,
             DataPagamento = DateHelper.ParseDate(dto.DataPagamento),
             DataCompetencia = DateHelper.ParseDate(dto.DataCompetencia),
-            ValorPago = CurrencyHelper.ParseBrazilianCurrency(dto.ValorPago),
-            Desconto = CurrencyHelper.ParseBrazilianCurrency(dto.Desconto),
-            MultaJuros = CurrencyHelper.ParseBrazilianCurrency(dto.MultaJuros),
+            // Nomus retorna saída de caixa como negativo; Letmesee espera magnitude positiva
+            ValorPago = Math.Abs(CurrencyHelper.ParseBrazilianCurrency(dto.ValorPago)),
+            Desconto = Math.Abs(CurrencyHelper.ParseBrazilianCurrency(dto.Desconto)),
+            MultaJuros = Math.Abs(CurrencyHelper.ParseBrazilianCurrency(dto.MultaJuros)),
             BaixaContaPagar = dto.BaixaContaPagar,
             NomeFormaPagamento = dto.NomeFormaPagamento,
             NomeContaBancaria = dto.NomeContaBancaria,

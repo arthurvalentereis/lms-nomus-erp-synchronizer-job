@@ -11,11 +11,15 @@ public static class PessoaMapper
 {
     public static Supplier ToDomain(PessoaDto dto)
     {
+        var documento = !string.IsNullOrWhiteSpace(dto.Cnpj)
+            ? dto.Cnpj
+            : (dto.Cpf ?? string.Empty);
+
         return new Supplier
         {
             Id = dto.Id,
             Nome = dto.Nome,
-            Cnpj = dto.Cnpj,
+            Cnpj = documento,
             Bairro = dto.BairroDistrito,
             Endereco = dto.Endereco,
             Numero = dto.Numero,

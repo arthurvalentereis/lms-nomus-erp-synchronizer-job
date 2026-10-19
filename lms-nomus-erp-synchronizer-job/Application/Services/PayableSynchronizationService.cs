@@ -80,12 +80,37 @@ public class PayableSynchronizationService : IPayableSynchronizationService
         pagamentos = pagamentos.Where(p => p.BaixaContaPagar == true).ToList();
         contasPagar = contasPagar.Where(c => c.Status == true).ToList();
 
-        _logger.LogInformation(
-            "Nomus D-1 contas a pagar cliente {UserGroupId}: Pagamentos {PagamentoCount}, Contas {ContaCount}, Suppliers {SupplierCount}",
-            userGroupId, pagamentos.Count, contasPagar.Count, suppliers.Count);
+        // Cache D-1 + GET por idPessoa das faturas (contasPagar não retorna cnpjPessoa)
+        var documentCache = SupplierDocumentResolver.BuildDocumentCache(suppliers);
+        var missingSuppliers = await SupplierDocumentResolver.FetchMissingPessoasAsync(
+            nomusClient,
+            contasPagar.Select(c => c.IdPessoa),
+            documentCache,
+            _logger,
+            cancellationToken);
 
-        await SendSupplierInvoicesAsync(pagamentos, contasPagar, userGroupId, creditorDocument, cancellationToken);
+        if (missingSuppliers.Count > 0)
+        {
+            suppliers = MergeSuppliersById(suppliers, missingSuppliers);
+            foreach (var kv in SupplierDocumentResolver.BuildDocumentCache(missingSuppliers))
+                documentCache[kv.Key] = kv.Value;
+        }
+
+        var hydrated = SupplierDocumentResolver.HydrateContasFromCache(contasPagar, documentCache);
+        var withoutDoc = contasPagar.Count(c => string.IsNullOrWhiteSpace(c.CnpjCpfPessoa));
+
+        _logger.LogInformation(
+            "Nomus D-1 contas a pagar cliente {UserGroupId}: Pagamentos {PagamentoCount}, Contas {ContaCount}, Suppliers {SupplierCount}, Contas com documento {HydratedCount}, sem documento {WithoutDocCount}",
+            userGroupId,
+            pagamentos.Count,
+            contasPagar.Count,
+            suppliers.Count,
+            hydrated,
+            withoutDoc);
+
+        // Supplier antes da invoice para o Leader já ter o cadastro ao vincular por documento
         await SendSuppliersAsync(suppliers, userGroupId, userCompanyId, cancellationToken);
+        await SendSupplierInvoicesAsync(pagamentos, contasPagar, userGroupId, creditorDocument, cancellationToken);
 
         _logger.LogInformation(
             "Sincronização D-1 de contas a pagar do cliente {UserGroupId} concluída em {Duration}ms",
@@ -107,6 +132,18 @@ public class PayableSynchronizationService : IPayableSynchronizationService
             hashToken,
             baseUrl,
             cancellationToken);
+
+    private static List<Supplier> MergeSuppliersById(List<Supplier> existing, List<Supplier> extras)
+    {
+        var byId = existing
+            .GroupBy(s => s.Id)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var supplier in extras)
+            byId[supplier.Id] = supplier;
+
+        return byId.Values.ToList();
+    }
 
     private static string BuildD1Url(string path, string filtroTemplate, string dateFormat)
     {
