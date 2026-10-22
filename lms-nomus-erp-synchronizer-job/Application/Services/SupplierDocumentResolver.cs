@@ -19,13 +19,7 @@ internal static class SupplierDocumentResolver
         var cache = new Dictionary<long, string>();
 
         foreach (var supplier in suppliers)
-        {
-            var doc = InvoiceMapper.LimparDocumento(supplier.Cnpj ?? string.Empty);
-            if (string.IsNullOrEmpty(doc))
-                continue;
-
-            cache[supplier.Id] = doc;
-        }
+            cache[supplier.Id] = InvoiceMapper.LimparDocumento(supplier.Cnpj ?? string.Empty);
 
         return cache;
     }
@@ -58,7 +52,7 @@ internal static class SupplierDocumentResolver
     public static async Task<List<Supplier>> FetchMissingPessoasAsync(
         INomusClient nomusClient,
         IEnumerable<int> idPessoas,
-        IReadOnlyDictionary<long, string> documentByPessoaId,
+        IDictionary<long, string> documentByPessoaId,
         ILogger logger,
         CancellationToken cancellationToken)
     {
@@ -71,7 +65,7 @@ internal static class SupplierDocumentResolver
             return [];
 
         logger.LogInformation(
-            "Resolvendo documento de {Count} pessoas ausentes no cache D-1 (GET rest/pessoas por id)",
+            "Resolvendo documento de {Count} pessoas ausentes no cache (GET rest/pessoas por id)",
             missingIds.Count);
 
         var fetched = new List<Supplier>(missingIds.Count);
@@ -90,6 +84,7 @@ internal static class SupplierDocumentResolver
                 if (dto == null)
                 {
                     logger.LogWarning("Pessoa id={IdPessoa} não encontrada na Nomus", id);
+                    documentByPessoaId[id] = string.Empty;
                     continue;
                 }
 
@@ -117,5 +112,26 @@ internal static class SupplierDocumentResolver
             missingIds.Count);
 
         return fetched;
+    }
+
+    /// <summary>
+    /// Incorpora pessoas resolvidas no cache e marca ids já consultados (evita GET repetido).
+    /// </summary>
+    public static void MergeIntoDocumentCache(
+        IDictionary<long, string> cache,
+        IEnumerable<Supplier> suppliers,
+        IEnumerable<int>? resolvedIds = null)
+    {
+        foreach (var kv in BuildDocumentCache(suppliers))
+            cache[kv.Key] = kv.Value;
+
+        if (resolvedIds == null)
+            return;
+
+        foreach (var id in resolvedIds.Where(id => id > 0))
+        {
+            if (!cache.ContainsKey(id))
+                cache[id] = string.Empty;
+        }
     }
 }

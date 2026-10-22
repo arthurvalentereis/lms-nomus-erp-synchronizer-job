@@ -27,6 +27,7 @@ public static class SupplierMapper
             UserCompanyId = userCompanyId,
             Name = supplier.Nome,
             Cnpj = LimparDocumento(supplier.Cnpj ?? ""),
+            InternalCode = supplier.Id > 0 ? supplier.Id.ToString() : null,
             Email = supplier.Email,
             PhoneNumber = supplier.Telefone,
             Address = supplier.Endereco,

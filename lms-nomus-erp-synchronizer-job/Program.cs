@@ -67,7 +67,7 @@ builder.Services.AddHangfireServer(options =>
 {
     // WorkerCount pode ser aumentado para processar múltiplos clientes em paralelo
     // Ex: 10 workers = 10 clientes processados simultaneamente
-    options.WorkerCount = Environment.ProcessorCount; // Usa número de CPUs disponíveis
+    options.WorkerCount = 1;
 });
 
 // =====================

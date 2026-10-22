@@ -8,6 +8,8 @@
 
         public string Name { get; set; } = string.Empty;
         public string Cnpj { get; set; } = string.Empty;
+        /// <summary>idPessoa Nomus (ou outro código interno do ERP).</summary>
+        public string? InternalCode { get; set; }
         public DateTime RegistratedAt { get; set; }
 
         public string Email { get; set; } = string.Empty;

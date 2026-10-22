@@ -13,6 +13,7 @@ namespace lms_nomus_erp_synchronizer_job.Application.Services;
 /// <summary>
 /// Carga inicial do histórico de contas a pagar: Nomus página a página → buffer → Letmesee em lotes configuráveis.
 /// Pessoas viram dicionário idPessoa → documento; invoices hidratam BuyerDocument por esse cache.
+/// idPessoa ausente no cache é buscado em rest/pessoas e enviado ao Leader antes da invoice da página.
 /// </summary>
 public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayableSynchronizationService
 {
@@ -61,7 +62,7 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
             nomusClient, userGroupId, userCompanyId, cancellationToken);
 
         var invoicesSent = await SyncSupplierInvoicesAsync(
-            nomusClient, userGroupId, creditorDocument, documentCache, cancellationToken);
+            nomusClient, userGroupId, userCompanyId, creditorDocument, documentCache, cancellationToken);
 
         var duration = DateTime.UtcNow - startTime;
         _logger.LogInformation(
@@ -127,8 +128,9 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
     private async Task<int> SyncSupplierInvoicesAsync(
         INomusClient nomusClient,
         long userGroupId,
+        long userCompanyId,
         string creditorDocument,
-        IReadOnlyDictionary<long, string> documentCache,
+        Dictionary<long, string> documentCache,
         CancellationToken cancellationToken)
     {
         const string contasUrl = "rest/contasPagar";
@@ -141,6 +143,7 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
         var pagina = 0;
         var hydratedTotal = 0;
         var withoutDocTotal = 0;
+        var missingSuppliersSent = 0;
 
         while (true)
         {
@@ -165,6 +168,25 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
                 .Select(PagamentoMapper.ToDomain)
                 .ToList();
 
+            var pagePessoaIds = contas.Select(c => c.IdPessoa).ToList();
+            var missingSuppliers = await SupplierDocumentResolver.FetchMissingPessoasAsync(
+                nomusClient,
+                pagePessoaIds,
+                documentCache,
+                _logger,
+                cancellationToken);
+
+            if (missingSuppliers.Count > 0)
+            {
+                var mapped = missingSuppliers
+                    .Select(s => SupplierMapper.ToSupplierDto(s, userGroupId, userCompanyId))
+                    .ToList();
+                await _letmeseeService.SendSuppliersAsync(mapped, cancellationToken);
+                missingSuppliersSent += mapped.Count;
+            }
+
+            SupplierDocumentResolver.MergeIntoDocumentCache(documentCache, missingSuppliers);
+
             hydratedTotal += SupplierDocumentResolver.HydrateContasFromCache(contas, documentCache);
             withoutDocTotal += contas.Count(c => string.IsNullOrWhiteSpace(c.CnpjCpfPessoa));
 
@@ -178,25 +200,27 @@ public sealed class FullHistoryPayableSynchronizationService : IFullHistoryPayab
             await sendBuffer.FlushPendingAsync(cancellationToken);
 
             _logger.LogInformation(
-                "Supplier invoices página {Pagina} (cliente {UserGroupId}): {Contas} contas → {Invoices} invoices (hidratadas {HydratedPage}, sem doc acumulado {WithoutDoc})",
+                "Supplier invoices página {Pagina} (cliente {UserGroupId}): {Contas} contas → {Invoices} invoices (hidratadas {HydratedPage}, sem doc acumulado {WithoutDoc}, pessoas extra {MissingPage})",
                 pagina,
                 userGroupId,
                 contas.Count,
                 pageInvoices.Count,
                 contas.Count(c => !string.IsNullOrWhiteSpace(c.CnpjCpfPessoa)),
-                withoutDocTotal);
+                withoutDocTotal,
+                missingSuppliers.Count);
         }
 
         await sendBuffer.FlushRemainderAsync(cancellationToken);
 
         _logger.LogInformation(
-            "Histórico de supplier invoices do cliente {UserGroupId}: {TotalSent} enviadas em {Paginas} páginas Nomus (lotes de {BatchSize}); documentos hidratados {Hydrated}, sem documento {WithoutDoc}",
+            "Histórico de supplier invoices do cliente {UserGroupId}: {TotalSent} enviadas em {Paginas} páginas Nomus (lotes de {BatchSize}); documentos hidratados {Hydrated}, sem documento {WithoutDoc}, pessoas extra enviadas {MissingSent}",
             userGroupId,
             sendBuffer.TotalSent,
             pagina > 0 ? pagina - 1 : 0,
             _batchSize,
             hydratedTotal,
-            withoutDocTotal);
+            withoutDocTotal,
+            missingSuppliersSent);
 
         return sendBuffer.TotalSent;
     }
