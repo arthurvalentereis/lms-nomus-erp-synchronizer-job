@@ -27,6 +27,7 @@ namespace lms_nomus_erp_synchronizer_job.Application.Mappers
                 UserCompanyId = userCompanyId,
                 Name = customerDto.Nome,
                 Cnpj = LimparDocumento(customerDto.Cnpj ?? ""),
+                InternalCode = customerDto.Id > 0 ? customerDto.Id.ToString() : null,
                 Email = customerDto.Email,
                 PhoneNumber = customerDto.Telefone,
                 Address = customerDto.Endereco,

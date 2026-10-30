@@ -61,7 +61,7 @@ public sealed class FullHistorySynchronizationService : IFullHistorySynchronizat
         _logger.LogInformation(
             "Carga de histórico do cliente {UserGroupId} concluída. Customers: {CustomersSent}, Invoices: {InvoicesSent}, Duração: {Duration}ms",
             userGroupId,
-            //customersSent,
+            customersSent,
             invoicesSent,
             duration.TotalMilliseconds);
     }

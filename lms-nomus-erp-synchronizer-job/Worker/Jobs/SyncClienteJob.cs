@@ -26,9 +26,10 @@ public class SyncClienteJob
     }
 
     /// <summary>
-    /// Sincroniza um cliente (AP D-1). Sem <c>CancellationToken</c> nos argumentos Hangfire (serialização).
+    /// Sincroniza um cliente (AR D-1 + AP D-1). Sem <c>CancellationToken</c> nos argumentos Hangfire (serialização).
+    /// Timeout maior que o ciclo curto: AP resolve pessoas ausentes com GET por id.
     /// </summary>
-    [DisableConcurrentExecution(timeoutInSeconds: 300)]
+    [DisableConcurrentExecution(timeoutInSeconds: 3600)]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 120 })]
     public async Task ExecuteAsync(long userGroupId, long userCompanyId, string creditorDocument, string hashToken, string baseUrl)
     {
@@ -51,8 +52,7 @@ public class SyncClienteJob
                 "Iniciando sincronização do cliente {UserGroupId}. CorrelationId: {CorrelationId}",
                 userGroupId, correlationId);
 
-            // AR (clientes/invoices) desligado nesta rotina local — só supplier/AP.
-            // await _synchronizationService.SynchronizeClienteAsync(userGroupId, userCompanyId, creditorDocument, hashToken, baseUrl, cancellationToken);
+            await _synchronizationService.SynchronizeClienteAsync(userGroupId, userCompanyId, creditorDocument, hashToken, baseUrl, cancellationToken);
             await _payableSynchronizationService.SynchronizeClienteAsync(userGroupId, userCompanyId, creditorDocument, hashToken, baseUrl, cancellationToken);
 
             var duration = DateTime.UtcNow - startTime;
@@ -71,7 +71,7 @@ public class SyncClienteJob
     }
 
     /// <summary>
-    /// Histórico completo (AP). Timeout longo porque a Nomus pagina até esvaziar.
+    /// Histórico completo (AR + AP). Timeout longo porque a Nomus pagina até esvaziar.
     /// </summary>
     [DisableConcurrentExecution(timeoutInSeconds: 7200)]
     [AutomaticRetry(Attempts = 3, DelaysInSeconds = new[] { 30, 60, 120 })]
@@ -96,8 +96,7 @@ public class SyncClienteJob
                 "Iniciando sincronização de histórico do cliente {UserGroupId}. CorrelationId: {CorrelationId}",
                 userGroupId, correlationId);
 
-            // AR (clientes/invoices) desligado nesta rotina local — só supplier/AP.
-            // await _synchronizationService.SynchronizeAllFilesClienteAsync(userGroupId, userCompanyId, creditorDocument, hashToken, baseUrl, cancellationToken);
+            await _synchronizationService.SynchronizeAllFilesClienteAsync(userGroupId, userCompanyId, creditorDocument, hashToken, baseUrl, cancellationToken);
             await _payableSynchronizationService.SynchronizeAllFilesClienteAsync(userGroupId, userCompanyId, creditorDocument, hashToken, baseUrl, cancellationToken);
 
             var duration = DateTime.UtcNow - startTime;
